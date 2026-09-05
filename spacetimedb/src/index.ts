@@ -680,8 +680,32 @@ export const setRole = spacetimedb.reducer(
 export const createDecision = spacetimedb.reducer(
   { weddingId: t.u64(), title: t.string(), options: t.array(t.string()) },
   (ctx, { weddingId, title, options }) => {
-    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can create a decision');
-    seedDecision(ctx, weddingId, title, options);
+    // A poll is a human proposal, not a decision. Any wedding member may put
+    // a question to the group; only a named decider or the couple can lock an
+    // outcome later. This keeps chat polls useful without giving them authority.
+    if (!membershipFor(ctx, weddingId)) throw new SenderError('only wedding members can create a poll');
+    const question = title.trim();
+    const cleanOptions = options.map(option => option.trim()).filter(Boolean);
+    if (!question || question.length > 300) throw new SenderError('enter a short poll question');
+    if (cleanOptions.length < 2 || cleanOptions.length > 12 || cleanOptions.some(option => option.length > 160)) {
+      throw new SenderError('add between two and twelve short poll options');
+    }
+    seedDecision(ctx, weddingId, question, cleanOptions);
+    // Creating a poll is a human chat action. Record its question and options
+    // in the shared conversation in the same transaction, so the family sees
+    // the new poll even if they have not opened the Decide tab yet.
+    ctx.db.wedding_message.insert({
+      id: 0n,
+      weddingId,
+      body: `New poll: ${question}\nOptions: ${cleanOptions.join(' · ')}`,
+      sentBy: ctx.sender,
+      sentAt: ctx.timestamp,
+      state: 'confirmed',
+      source: 'chat',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
   }
 );
 

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Check, ChevronRight, Crown, LockKeyhole } from 'lucide-react';
 import { tables, reducers } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
+import '../decision-board.css';
+import '../open-polls.css';
 
 export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
   const { identity } = useSpacetimeDB();
@@ -15,10 +17,12 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
   const setDecider = useReducer(reducers.setDecider);
   const [choice, setChoice] = useState<bigint | undefined>();
   const [showAll, setShowAll] = useState(false);
+  const [activeDecisionId, setActiveDecisionId] = useState<bigint | undefined>();
   const myHex = identity?.toHexString();
   const myMembership = members.find(row => row.weddingId === weddingId && row.identity.toHexString() === myHex);
   const iAmAdmin = myMembership?.role === 'couple' || myMembership?.role === 'planner';
-  const next = useMemo(() => [...decisions].filter(row => row.weddingId === weddingId && row.lockedOptionId === undefined).sort((a, b) => Number(a.id - b.id))[0], [decisions, weddingId]);
+  const open = useMemo(() => [...decisions].filter(row => row.weddingId === weddingId && row.lockedOptionId === undefined).sort((a, b) => Number(a.id - b.id)), [decisions, weddingId]);
+  const next = open.find(row => row.id === activeDecisionId) ?? open[0];
   const settled = useMemo(() => decisions.filter(row => row.weddingId === weddingId && row.lockedOptionId !== undefined).sort((a, b) => Number(b.id - a.id)), [decisions, weddingId]);
   const settledPolls = settled.length ? <section className="settled-polls"><p className="section-label">Past polls</p><h2>Settled decisions</h2>{settled.map(decision => { const winner = options.find(option => option.id === decision.lockedOptionId); const decider = decision.deciderIdentity ? participants.find(person => person.identity.equals(decision.deciderIdentity!)) : undefined; return <article key={String(decision.id)}><b>{decision.title}</b><p><strong>{winner?.label ?? 'Final choice'}</strong> · decided by {decider?.name ?? 'Wedding team'}</p></article>; })}</section> : null;
 
@@ -36,8 +40,8 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
 
   return <div className="decision-page">
     <p className="eyebrow">Decisions</p>
-    <h1 className="decision-question">{next.title}</h1>
-    <p className="decision-meta">Your vote helps the named decider choose. It doesn’t replace their final call.</p>
+    {open.length > 1 && <div className="open-poll-list" aria-label="Open polls"><p>{open.length} open polls</p>{open.map((decision, index) => <button type="button" className={decision.id === next.id ? 'active' : ''} key={String(decision.id)} onClick={() => { setActiveDecisionId(decision.id); setChoice(undefined); setShowAll(false); }}><span>{index + 1}</span><b>{decision.title}</b><small>{votes.filter(vote => vote.decisionId === decision.id).length} vote{votes.filter(vote => vote.decisionId === decision.id).length === 1 ? '' : 's'}</small></button>)}</div>}
+    <div className="decision-active"><p className="section-label">{open.length > 1 ? 'Selected poll' : 'Open poll'}</p><h1 className="decision-question">{next.title}</h1><p className="decision-meta">Your vote helps the named decider choose. It doesn’t replace their final call.</p></div>
     <div className="decision-options">
       {decisionOptions.slice(0, showAll ? undefined : 3).map((option, index) => {
         const active = picked === option.id;

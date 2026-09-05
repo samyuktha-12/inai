@@ -1,0 +1,2 @@
+/* Incoming family notes mirror the reply bubble while staying on the left. */
+.group-chat-message:not(.own) .message-bubble{width:fit-content;max-width:min(78%,43ch);padding:11px 13px 9px;border:1px solid var(--rule);border-radius:3px 14px 14px 14px;background:var(--paper-raised)}.group-chat-message:not(.own) .message-bubble p{margin:3px 0 6px}.group-chat-message:not(.own) .message-bubble time{text-align:right}@media(max-width:560px){.group-chat-message:not(.own) .message-bubble{max-width:86%}}

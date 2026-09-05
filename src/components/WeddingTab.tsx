@@ -4,6 +4,10 @@ import { AlertTriangle, BadgeIndianRupee, Bot, CalendarDays, CalendarPlus, Check
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import { parseImport, type ParsedImport } from '../lib/ingest';
+import bridalStyling from '../../dataset/priya-rahul/02-pinterest-mood-boards/images/bridal-styling.png';
+import ceremonyMandap from '../../dataset/priya-rahul/02-pinterest-mood-boards/images/ceremony-mandap.png';
+import dinnerCelebration from '../../dataset/priya-rahul/02-pinterest-mood-boards/images/dinner-celebration.png';
+import '../wedding-workspace.css';
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -217,7 +221,8 @@ function ContactImport({ weddingId }: { weddingId: bigint }) {
 function MoodBoard({ weddingId }: { weddingId: bigint }) {
   const [moodItems] = useTable(tables.moodItem);
   const items = moodItems.filter(item => item.weddingId === weddingId);
-  return <section className="mood-board"><div className="mood-board-heading"><div><p className="section-label">Pinterest inspiration</p><h2>A feeling to build from</h2><p>These are source ideas, not final choices. Bring any one into Decide when the family is ready.</p></div><span className="mood-review-badge">Needs review</span></div>{items.length ? <div className="mood-grid">{items.map(item => <article className="mood-card" key={String(item.id)}><div className="mood-swatch" style={{ background: `linear-gradient(135deg, ${item.palette})` }} /><div><small>Pinterest import · needs review</small><h3>{item.title}</h3><p>{item.note}</p>{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer">Open source board</a>}</div></article>)}</div> : <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>}</section>;
+  const thumbnails = [bridalStyling, ceremonyMandap, dinnerCelebration];
+  return <section className="mood-board"><div className="mood-board-heading"><div><p className="section-label">Pinterest inspiration</p><h2>A feeling to build from</h2><p>These are source ideas, not final choices. Bring any one into Decide when the family is ready.</p></div><span className="mood-review-badge">Needs review</span></div>{items.length ? <div className="mood-grid">{items.map((item, index) => <article className="mood-card" key={String(item.id)}><img className="mood-swatch" src={thumbnails[index % thumbnails.length]} alt="" /><div><small>Pinterest import · needs review</small><h3>{item.title}</h3><p>{item.note}</p>{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer">Open source board</a>}</div></article>)}</div> : <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>}</section>;
 }
 
 function EventWorkspace({ weddingId }: { weddingId: bigint }) {
