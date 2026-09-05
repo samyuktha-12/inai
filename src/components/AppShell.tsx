@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Home, Vote, MapPin, Users, LogOut, ArrowLeft, X, MessageCircle } from 'lucide-react';
+import { Home, Vote, MapPin, Users, LogOut, ArrowLeft, X } from 'lucide-react';
 import { tables, reducers } from '../module_bindings';
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
 import TodayTab from './TodayTab';
@@ -271,7 +271,6 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
             }}
             title={isActive ? 'Connected' : 'Connecting…'}
           />
-          <button type="button" onClick={() => setChatOpen(true)} aria-label="Open wedding chat" className="topbar-chat-button"><MessageCircle size={19} /><span>Chat</span></button>
           <button
             type="button"
             onClick={() => setPeopleOpen(true)}

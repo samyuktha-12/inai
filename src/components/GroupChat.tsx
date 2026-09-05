@@ -12,12 +12,14 @@ function initials(name: string) {
 }
 
 export default function GroupChat({ weddingId, onClose, embedded = false }: { weddingId: bigint; onClose?: () => void; embedded?: boolean }) {
-  const { identity } = useSpacetimeDB();
-  const [messages] = useTable(tables.weddingMessage);
+  const { identity, isActive } = useSpacetimeDB();
+  const [messages, messagesReady] = useTable(tables.weddingMessage);
   const [participants] = useTable(tables.participant);
   const [members] = useTable(tables.member);
   const sendWeddingMessage = useReducer(reducers.sendWeddingMessage);
   const [draft, setDraft] = useState('');
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const myHex = identity?.toHexString();
   const chatMessages = useMemo(() => messages.filter(message => message.weddingId === weddingId).sort((a, b) => Number(a.sentAt.microsSinceUnixEpoch - b.sentAt.microsSinceUnixEpoch)), [messages, weddingId]);
@@ -25,11 +27,24 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [chatMessages.length]);
 
-  const send = () => {
+  const send = async () => {
     const body = draft.trim();
     if (!body) return;
-    sendWeddingMessage({ weddingId, body });
-    setDraft('');
+    if (!isActive) {
+      setSendError('Reconnecting to your wedding. Your message has not been sent yet.');
+      return;
+    }
+
+    setSendError(null);
+    setIsSending(true);
+    try {
+      await sendWeddingMessage({ weddingId, body });
+      setDraft('');
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Your message could not be sent. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const panel = <section className={`group-chat ${embedded ? 'group-chat--embedded' : ''}`} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : true} aria-labelledby="group-chat-title" onClick={event => event.stopPropagation()}>
@@ -40,7 +55,7 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
       </header>
       <div className="group-chat-notice"><Bot size={16} /><span>Your coordinator can read the conversation to prepare drafts. People still confirm every change.</span></div>
       <div className="group-chat-messages" aria-live="polite">
-        {chatMessages.length === 0 ? <div className="group-chat-empty"><MessageCircle size={26} /><b>Start the conversation</b><p>Share an update, question, or plan with your wedding group.</p></div> : chatMessages.map(message => {
+        {!messagesReady ? <div className="group-chat-empty"><MessageCircle size={26} /><b>Loading conversation</b><p>Fetching the messages saved to your wedding.</p></div> : chatMessages.length === 0 ? <div className="group-chat-empty"><MessageCircle size={26} /><b>Start the conversation</b><p>Share an update, question, or plan with your wedding group.</p></div> : chatMessages.map(message => {
           const sender = participants.find(person => person.identity.equals(message.sentBy));
           const name = sender?.name ?? 'Wedding member';
           const own = message.sentBy.toHexString() === myHex;
@@ -51,9 +66,10 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
         })}
         <div ref={endRef} />
       </div>
-      <form className="group-chat-compose" onSubmit={event => { event.preventDefault(); send(); }}>
-        <input value={draft} onChange={event => setDraft(event.target.value)} maxLength={2000} placeholder="Message the wedding group" aria-label="Message the wedding group" autoFocus />
-        <button type="submit" disabled={!draft.trim()} aria-label="Send message"><Send size={18} /></button>
+      <form className="group-chat-compose" onSubmit={event => { event.preventDefault(); void send(); }}>
+        <input value={draft} onChange={event => { setDraft(event.target.value); setSendError(null); }} maxLength={2000} placeholder="Message the wedding group" aria-label="Message the wedding group" autoFocus />
+        <button type="submit" disabled={!draft.trim() || isSending || !isActive} aria-label="Send message"><Send size={18} /></button>
+        {sendError && <p className="group-chat-send-error" role="alert">{sendError}</p>}
       </form>
     </section>;
 
