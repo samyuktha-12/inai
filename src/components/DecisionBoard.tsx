@@ -19,8 +19,10 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
   const myMembership = members.find(row => row.weddingId === weddingId && row.identity.toHexString() === myHex);
   const iAmAdmin = myMembership?.role === 'couple' || myMembership?.role === 'planner';
   const next = useMemo(() => [...decisions].filter(row => row.weddingId === weddingId && row.lockedOptionId === undefined).sort((a, b) => Number(a.id - b.id))[0], [decisions, weddingId]);
+  const settled = useMemo(() => decisions.filter(row => row.weddingId === weddingId && row.lockedOptionId !== undefined).sort((a, b) => Number(b.id - a.id)), [decisions, weddingId]);
+  const settledPolls = settled.length ? <section className="settled-polls"><p className="section-label">Past polls</p><h2>Settled decisions</h2>{settled.map(decision => { const winner = options.find(option => option.id === decision.lockedOptionId); const decider = decision.deciderIdentity ? participants.find(person => person.identity.equals(decision.deciderIdentity!)) : undefined; return <article key={String(decision.id)}><b>{decision.title}</b><p><strong>{winner?.label ?? 'Final choice'}</strong> · decided by {decider?.name ?? 'Wedding team'}</p></article>; })}</section> : null;
 
-  if (!next) return <div className="empty-state"><Check size={28}/><h1 className="headline">Every decision is settled</h1><p>New choices from your wedding team will appear here.</p></div>;
+  if (!next) return <div className="decision-page"><div className="empty-state"><Check size={28}/><h1 className="headline">Every decision is settled</h1><p>New choices from your wedding team will appear here.</p></div>{settledPolls}</div>;
 
   const decisionOptions = options.filter(row => row.decisionId === next.id);
   const myVote = votes.find(row => row.decisionId === next.id && row.voterIdentity.toHexString() === myHex);
@@ -50,6 +52,6 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
     {decisionOptions.length > 3 && <button className="ghost-button" onClick={() => setShowAll(value => !value)}>{showAll ? 'Show fewer options' : `See all ${decisionOptions.length} options`}</button>}
     <div className="decider-card"><Crown size={18}/><span>{decider ? <><b>{decider.name}</b> makes the final call.</> : <><b>A decider is needed.</b> A couple or planner can assign one.</>}</span></div>
     {!next.deciderIdentity && iAmAdmin && <select className="select-control" defaultValue="" aria-label="Choose a decider" onChange={event => { const person = participants.find(row => row.identity.toHexString() === event.target.value); if (person) setDecider({ decisionId: next.id, identity: person.identity }); }}><option value="" disabled>Choose who makes the final call</option>{participants.filter(person => members.some(member => member.weddingId === weddingId && member.identity.equals(person.identity))).map(person => <option key={person.identity.toHexString()} value={person.identity.toHexString()}>{person.name}</option>)}</select>}
-    <div className="decision-actions"><button className="primary-button" disabled={picked === undefined} onClick={submitVote}>{picked === undefined ? 'Choose an option' : `Vote: ${decisionOptions.find(item => item.id === picked)?.label}`}</button>{iCanDecide && picked !== undefined && <button className="lock-button" onClick={() => lockDecision({ decisionId: next.id, optionId: picked })}><LockKeyhole size={16}/> Make final call</button>}</div>
+    <div className="decision-actions"><button className="primary-button" disabled={picked === undefined} onClick={submitVote}>{picked === undefined ? 'Choose an option' : `Vote: ${decisionOptions.find(item => item.id === picked)?.label}`}</button>{iCanDecide && picked !== undefined && <button className="lock-button" onClick={() => lockDecision({ decisionId: next.id, optionId: picked })}><LockKeyhole size={16}/> Make final call</button>}</div>{settledPolls}
   </div>;
 }

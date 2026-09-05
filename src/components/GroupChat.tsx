@@ -21,12 +21,14 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
   const [coordinatorRequests] = useTable(tables.coordinatorRequest);
   const sendWeddingMessage = useReducer(reducers.sendWeddingMessage);
   const requestCoordinatorAction = useReducer(reducers.requestCoordinatorAction);
+  const createDecision = useReducer(reducers.createDecision);
   const [draft, setDraft] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [command, setCommand] = useState<'remind' | 'followup' | null>(null);
+  const [command, setCommand] = useState<'remind' | 'followup' | 'poll' | null>(null);
   const [targetHex, setTargetHex] = useState('');
   const [remindAt, setRemindAt] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
   const endRef = useRef<HTMLDivElement>(null);
   const myHex = identity?.toHexString();
   const chatMessages = useMemo(() => messages.filter(message => message.weddingId === weddingId).sort((a, b) => Number(a.sentAt.microsSinceUnixEpoch - b.sentAt.microsSinceUnixEpoch)), [messages, weddingId]);
@@ -48,7 +50,13 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
     setSendError(null);
     setIsSending(true);
     try {
-      if (command) {
+      if (command === 'poll') {
+        const options = pollOptions.map(option => option.trim()).filter(Boolean);
+        if (options.length < 2) throw new Error('Add at least two poll options.');
+        await createDecision({ weddingId, title: body, options });
+        setCommand(null);
+        setPollOptions(['', '']);
+      } else if (command) {
         const target = weddingMembers.find(person => person.identity.toHexString() === targetHex);
         if (!target) throw new Error('Choose who the coordinator should contact.');
         const scheduledFor = command === 'remind' && remindAt
@@ -69,7 +77,7 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
     }
   };
 
-  const selectCommand = (kind: 'remind' | 'followup') => {
+  const selectCommand = (kind: 'remind' | 'followup' | 'poll') => {
     setCommand(kind);
     setDraft('');
     setSendError(null);
@@ -96,11 +104,11 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
         <div ref={endRef} />
       </div>
       <form className="group-chat-compose" onSubmit={event => { event.preventDefault(); void send(); }}>
-        {command && <div className="chat-command-fields"><span className="chat-command-label">/{command === 'remind' ? 'remind' : 'followup'}</span><select value={targetHex} onChange={event => setTargetHex(event.target.value)} aria-label="Person to contact"><option value="">Choose a person</option>{weddingMembers.map(person => <option key={person.identity.toHexString()} value={person.identity.toHexString()}>{person.name}</option>)}</select>{command === 'remind' && <input type="datetime-local" value={remindAt} onChange={event => setRemindAt(event.target.value)} aria-label="Reminder time (optional)" />}</div>}
-        {draft === '/' && !command && <div className="chat-command-menu" role="listbox" aria-label="Coordinator commands"><button type="button" onClick={() => selectCommand('remind')}><b>/remind</b><span>Ask the coordinator to remind someone</span></button><button type="button" onClick={() => selectCommand('followup')}><b>/followup</b><span>Ask the coordinator to follow up with someone</span></button></div>}
-        <input value={draft} onChange={event => { setDraft(event.target.value); setSendError(null); }} maxLength={2000} placeholder={command ? command === 'remind' ? 'What should the coordinator remind them about?' : 'What should the coordinator follow up about?' : 'Message the wedding group — type / for coordinator help'} aria-label={command ? 'Coordinator request' : 'Message the wedding group'} autoFocus />
+        {command && <div className="chat-command-fields"><span className="chat-command-label">/{command}</span>{command === 'poll' ? <>{pollOptions.map((option, index) => <input key={index} value={option} onChange={event => setPollOptions(current => current.map((value, itemIndex) => itemIndex === index ? event.target.value : value))} placeholder={`Option ${index + 1}`} aria-label={`Poll option ${index + 1}`} />)}<button type="button" onClick={() => setPollOptions(current => [...current, ''])}>Add option</button></> : <><select value={targetHex} onChange={event => setTargetHex(event.target.value)} aria-label="Person to contact"><option value="">Choose a person</option>{weddingMembers.map(person => <option key={person.identity.toHexString()} value={person.identity.toHexString()}>{person.name}</option>)}</select>{command === 'remind' && <input type="datetime-local" value={remindAt} onChange={event => setRemindAt(event.target.value)} aria-label="Reminder time (optional)" />}</>}</div>}
+        {draft === '/' && !command && <div className="chat-command-menu" role="listbox" aria-label="Coordinator commands"><button type="button" onClick={() => selectCommand('remind')}><b>/remind</b><span>Ask the coordinator to remind someone</span></button><button type="button" onClick={() => selectCommand('followup')}><b>/followup</b><span>Ask the coordinator to follow up with someone</span></button><button type="button" onClick={() => selectCommand('poll')}><b>/poll</b><span>Ask the group to vote on a choice</span></button></div>}
+        <input value={draft} onChange={event => { setDraft(event.target.value); setSendError(null); }} maxLength={2000} placeholder={command ? command === 'poll' ? 'What should the group vote on?' : command === 'remind' ? 'What should the coordinator remind them about?' : 'What should the coordinator follow up about?' : 'Message the wedding group — type / for coordinator help'} aria-label={command ? 'Coordinator request' : 'Message the wedding group'} autoFocus />
         <button type="submit" disabled={!draft.trim() || isSending || !isActive} aria-label="Send message"><Send size={18} /></button>
-        {command && <p className="chat-command-note">This saves a request for the coordinator. It will only contact this person about their open item.</p>}
+        {command && <p className="chat-command-note">{command === 'poll' ? 'This creates a group poll. A person makes the final call after voting.' : 'This saves a request for the coordinator. It will only contact this person about their open item.'}</p>}
         {sendError && <p className="group-chat-send-error" role="alert">{sendError}</p>}
       </form>
     </section>;
