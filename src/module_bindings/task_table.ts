@@ -16,4 +16,10 @@ export default __t.row({
   ownerIdentity: __t.identity().name("owner_identity"),
   done: __t.bool(),
   createdAt: __t.timestamp().name("created_at"),
+  dueAt: __t.option(__t.timestamp()).name("due_at"),
+  state: __t.string(),
+  source: __t.string(),
+  reportedBy: __t.option(__t.identity()).name("reported_by"),
+  confidence: __t.option(__t.f32()),
+  reportedAt: __t.option(__t.timestamp()).name("reported_at"),
 });

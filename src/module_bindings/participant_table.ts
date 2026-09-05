@@ -14,4 +14,7 @@ export default __t.row({
   identity: __t.identity().primaryKey(),
   name: __t.string(),
   connected: __t.bool(),
+  role: __t.string(),
+  side: __t.option(__t.string()),
+  phone: __t.option(__t.string()),
 });

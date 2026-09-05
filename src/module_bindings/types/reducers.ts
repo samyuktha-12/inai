@@ -7,14 +7,28 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
 import CastVoteReducer from "../cast_vote_reducer";
+import ConfirmReportedTaskReducer from "../confirm_reported_task_reducer";
 import CreateDecisionReducer from "../create_decision_reducer";
 import CreateTaskReducer from "../create_task_reducer";
+import LinkPhoneReducer from "../link_phone_reducer";
+import LockDecisionReducer from "../lock_decision_reducer";
+import SetDeciderReducer from "../set_decider_reducer";
 import SetNameReducer from "../set_name_reducer";
+import SetRoleReducer from "../set_role_reducer";
+import SetSideReducer from "../set_side_reducer";
+import SetWebhookSecretReducer from "../set_webhook_secret_reducer";
 import ToggleTaskReducer from "../toggle_task_reducer";
 
 export type CastVoteParams = __Infer<typeof CastVoteReducer>;
+export type ConfirmReportedTaskParams = __Infer<typeof ConfirmReportedTaskReducer>;
 export type CreateDecisionParams = __Infer<typeof CreateDecisionReducer>;
 export type CreateTaskParams = __Infer<typeof CreateTaskReducer>;
+export type LinkPhoneParams = __Infer<typeof LinkPhoneReducer>;
+export type LockDecisionParams = __Infer<typeof LockDecisionReducer>;
+export type SetDeciderParams = __Infer<typeof SetDeciderReducer>;
 export type SetNameParams = __Infer<typeof SetNameReducer>;
+export type SetRoleParams = __Infer<typeof SetRoleReducer>;
+export type SetSideParams = __Infer<typeof SetSideReducer>;
+export type SetWebhookSecretParams = __Infer<typeof SetWebhookSecretReducer>;
 export type ToggleTaskParams = __Infer<typeof ToggleTaskReducer>;
 

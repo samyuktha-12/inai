@@ -15,6 +15,8 @@ export const Decision = __t.object("Decision", {
   title: __t.string(),
   createdBy: __t.identity(),
   createdAt: __t.timestamp(),
+  deciderIdentity: __t.option(__t.identity()),
+  lockedOptionId: __t.option(__t.u64()),
 });
 export type Decision = __Infer<typeof Decision>;
 
@@ -29,6 +31,9 @@ export const Participant = __t.object("Participant", {
   identity: __t.identity(),
   name: __t.string(),
   connected: __t.bool(),
+  role: __t.string(),
+  side: __t.option(__t.string()),
+  phone: __t.option(__t.string()),
 });
 export type Participant = __Infer<typeof Participant>;
 
@@ -38,6 +43,12 @@ export const Task = __t.object("Task", {
   ownerIdentity: __t.identity(),
   done: __t.bool(),
   createdAt: __t.timestamp(),
+  dueAt: __t.option(__t.timestamp()),
+  state: __t.string(),
+  source: __t.string(),
+  reportedBy: __t.option(__t.identity()),
+  confidence: __t.option(__t.f32()),
+  reportedAt: __t.option(__t.timestamp()),
 });
 export type Task = __Infer<typeof Task>;
 
@@ -49,4 +60,10 @@ export const Vote = __t.object("Vote", {
   votedAt: __t.timestamp(),
 });
 export type Vote = __Infer<typeof Vote>;
+
+export const WebhookSecret = __t.object("WebhookSecret", {
+  id: __t.u8(),
+  value: __t.string(),
+});
+export type WebhookSecret = __Infer<typeof WebhookSecret>;
 

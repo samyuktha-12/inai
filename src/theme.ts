@@ -9,6 +9,10 @@ export const colors = {
   hairline: '#E7E1D6',
   ink2: '#1C1B19',
   muted: '#6B675E',
+  card: '#FFFFFF',
+  marigold: '#E8A33D',
+  marigoldSoft: '#FBEFD8',
+  stage: '#EDE8DE',
 };
 
 export const fonts = {

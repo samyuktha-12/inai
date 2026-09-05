@@ -13,4 +13,5 @@ import {
 export default {
   title: __t.string(),
   ownerIdentity: __t.identity(),
+  dueAt: __t.option(__t.timestamp()),
 };

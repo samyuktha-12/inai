@@ -35,9 +35,16 @@ import {
 
 // Import all reducer arg schemas
 import CastVoteReducer from "./cast_vote_reducer";
+import ConfirmReportedTaskReducer from "./confirm_reported_task_reducer";
 import CreateDecisionReducer from "./create_decision_reducer";
 import CreateTaskReducer from "./create_task_reducer";
+import LinkPhoneReducer from "./link_phone_reducer";
+import LockDecisionReducer from "./lock_decision_reducer";
+import SetDeciderReducer from "./set_decider_reducer";
 import SetNameReducer from "./set_name_reducer";
+import SetRoleReducer from "./set_role_reducer";
+import SetSideReducer from "./set_side_reducer";
+import SetWebhookSecretReducer from "./set_webhook_secret_reducer";
 import ToggleTaskReducer from "./toggle_task_reducer";
 
 // Import all procedure arg schemas
@@ -81,6 +88,9 @@ const tablesSchema = __schema({
       { accessor: 'identity', name: 'participant_identity_idx_btree', algorithm: 'btree', columns: [
         'identity',
       ] },
+      { accessor: 'by_phone', name: 'participant_phone_idx_btree', algorithm: 'btree', columns: [
+        'phone',
+      ] },
     ],
     constraints: [
       { name: 'participant_identity_key', constraint: 'unique', columns: ['identity'] },
@@ -117,9 +127,16 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("cast_vote", CastVoteReducer),
+  __reducerSchema("confirm_reported_task", ConfirmReportedTaskReducer),
   __reducerSchema("create_decision", CreateDecisionReducer),
   __reducerSchema("create_task", CreateTaskReducer),
+  __reducerSchema("link_phone", LinkPhoneReducer),
+  __reducerSchema("lock_decision", LockDecisionReducer),
+  __reducerSchema("set_decider", SetDeciderReducer),
   __reducerSchema("set_name", SetNameReducer),
+  __reducerSchema("set_role", SetRoleReducer),
+  __reducerSchema("set_side", SetSideReducer),
+  __reducerSchema("set_webhook_secret", SetWebhookSecretReducer),
   __reducerSchema("toggle_task", ToggleTaskReducer),
 );
 

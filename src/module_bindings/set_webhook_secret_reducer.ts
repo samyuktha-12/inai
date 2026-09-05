@@ -10,11 +10,6 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  id: __t.u64().primaryKey(),
-  title: __t.string(),
-  createdBy: __t.identity().name("created_by"),
-  createdAt: __t.timestamp().name("created_at"),
-  deciderIdentity: __t.option(__t.identity()).name("decider_identity"),
-  lockedOptionId: __t.option(__t.u64()).name("locked_option_id"),
-});
+export default {
+  value: __t.string(),
+};

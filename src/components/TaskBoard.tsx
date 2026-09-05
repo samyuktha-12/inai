@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react';
+import { Timestamp } from 'spacetimedb';
 import { tables, reducers } from '../module_bindings';
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
 import { colors, fonts } from '../theme';
+
+function formatDue(dueAt?: Timestamp) {
+  if (!dueAt) return null;
+  const date = new Date(Number(dueAt.microsSinceUnixEpoch / 1000n));
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export default function TaskBoard() {
   const { identity } = useSpacetimeDB();
@@ -12,6 +19,7 @@ export default function TaskBoard() {
 
   const [title, setTitle] = useState('');
   const [ownerHex, setOwnerHex] = useState('');
+  const [dueDate, setDueDate] = useState('');
 
   const myHex = identity?.toHexString();
 
@@ -27,8 +35,15 @@ export default function TaskBoard() {
     e.preventDefault();
     const owner = participants.find(p => p.identity.toHexString() === ownerHex);
     if (!title.trim() || !owner) return;
-    createTask({ title: title.trim(), ownerIdentity: owner.identity });
+    createTask({
+      title: title.trim(),
+      ownerIdentity: owner.identity,
+      dueAt: dueDate
+        ? new Timestamp(BigInt(new Date(dueDate).getTime()) * 1000n)
+        : undefined,
+    });
     setTitle('');
+    setDueDate('');
   };
 
   const inputStyle: React.CSSProperties = {
@@ -68,7 +83,7 @@ export default function TaskBoard() {
         <select
           value={ownerHex}
           onChange={e => setOwnerHex(e.target.value)}
-          style={{ ...inputStyle, flex: '0 1 160px' }}
+          style={{ ...inputStyle, flex: '1 1 140px' }}
         >
           <option value="">Assign to…</option>
           {participants.map(p => (
@@ -77,6 +92,12 @@ export default function TaskBoard() {
             </option>
           ))}
         </select>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={e => setDueDate(e.target.value)}
+          style={{ ...inputStyle, flex: '1 1 140px' }}
+        />
         <button
           type="submit"
           style={{
@@ -99,6 +120,7 @@ export default function TaskBoard() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {sortedTasks.map(task => {
           const mine = task.ownerIdentity.toHexString() === myHex;
+          const due = formatDue(task.dueAt);
           return (
             <label
               key={String(task.id)}
@@ -133,6 +155,7 @@ export default function TaskBoard() {
                 <span style={{ fontSize: 12, color: colors.muted }}>
                   {nameFor(task.ownerIdentity.toHexString())}
                   {mine ? ' (you)' : ''}
+                  {due ? ` · due ${due}` : ''}
                 </span>
               </span>
             </label>
