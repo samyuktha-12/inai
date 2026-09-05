@@ -183,6 +183,24 @@ const wedding_agent = table(
   }
 );
 
+// A couple or planner can tune an assistant's working brief. This stays
+// separate from the assignment record so an agent is never granted authority
+// merely by being configured.
+const wedding_agent_setting = table(
+  { name: 'wedding_agent_setting', public: true, indexes: [{ accessor: 'by_wedding_kind', algorithm: 'btree', columns: ['weddingId', 'kind'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    kind: t.string(),
+    instructions: t.string(),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
 // The planning group chat is a shared, human-authored coordination record.
 // Agent-written summaries belong in proposals, never in this chat as facts.
 const wedding_message = table(
@@ -319,6 +337,7 @@ const spacetimedb = schema({
   expense,
   ingest_source,
   wedding_agent,
+  wedding_agent_setting,
   wedding_message,
   coordinator_request,
 });
@@ -562,6 +581,45 @@ export const setWeddingAgent = spacetimedb.reducer(
     } else {
       ctx.db.wedding_agent.insert({ id: 0n, weddingId, kind, enabled, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
     }
+  }
+);
+
+export const setWeddingAgentInstructions = spacetimedb.reducer(
+  { weddingId: t.u64(), kind: t.string(), instructions: t.string() },
+  (ctx, { weddingId, kind, instructions }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can customise assistants');
+    if (!WEDDING_AGENT_KINDS.includes(kind as WeddingAgentKind)) throw new SenderError('invalid assistant');
+    const value = instructions.trim();
+    if (value.length > 2000) throw new SenderError('instructions must be 2000 characters or fewer');
+    const [existing] = [...ctx.db.wedding_agent_setting.by_wedding_kind.filter([weddingId, kind])];
+    if (existing) {
+      ctx.db.wedding_agent_setting.id.update({ ...existing, instructions: value, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    } else {
+      ctx.db.wedding_agent_setting.insert({ id: 0n, weddingId, kind, instructions: value, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    }
+  }
+);
+
+export const createEvent = spacetimedb.reducer(
+  { weddingId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()) },
+  (ctx, { weddingId, title, venue, startsAt }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add an event');
+    const eventTitle = title.trim();
+    if (!eventTitle || eventTitle.length > 200) throw new SenderError('event name must be between 1 and 200 characters');
+    const eventVenue = venue?.trim() || undefined;
+    if (eventVenue && eventVenue.length > 300) throw new SenderError('venue must be 300 characters or fewer');
+    ctx.db.event.insert({
+      id: 0n,
+      weddingId,
+      title: eventTitle,
+      startsAt,
+      venue: eventVenue,
+      state: 'reported',
+      source: 'manual',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
   }
 );
 

@@ -39,6 +39,7 @@ import AddMemberReducer from "./add_member_reducer";
 import CastVoteReducer from "./cast_vote_reducer";
 import ConfirmReportedTaskReducer from "./confirm_reported_task_reducer";
 import CreateDecisionReducer from "./create_decision_reducer";
+import CreateEventReducer from "./create_event_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateWeddingReducer from "./create_wedding_reducer";
 import CreateWeddingInvitationReducer from "./create_wedding_invitation_reducer";
@@ -55,6 +56,7 @@ import SetRoleReducer from "./set_role_reducer";
 import SetSideReducer from "./set_side_reducer";
 import SetWebhookSecretReducer from "./set_webhook_secret_reducer";
 import SetWeddingAgentReducer from "./set_wedding_agent_reducer";
+import SetWeddingAgentInstructionsReducer from "./set_wedding_agent_instructions_reducer";
 import ToggleTaskReducer from "./toggle_task_reducer";
 import UpdateMyProfileReducer from "./update_my_profile_reducer";
 
@@ -73,6 +75,7 @@ import TaskRow from "./task_table";
 import VoteRow from "./vote_table";
 import WeddingRow from "./wedding_table";
 import WeddingAgentRow from "./wedding_agent_table";
+import WeddingAgentSettingRow from "./wedding_agent_setting_table";
 import WeddingMessageRow from "./wedding_message_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -242,6 +245,21 @@ const tablesSchema = __schema({
       { name: 'wedding_agent_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, WeddingAgentRow),
+  weddingAgentSetting: __table({
+    name: 'wedding_agent_setting',
+    indexes: [
+      { accessor: 'id', name: 'wedding_agent_setting_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding_kind', name: 'wedding_agent_setting_wedding_id_kind_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+        'kind',
+      ] },
+    ],
+    constraints: [
+      { name: 'wedding_agent_setting_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, WeddingAgentSettingRow),
   weddingMessage: __table({
     name: 'wedding_message',
     indexes: [
@@ -265,6 +283,7 @@ const reducersSchema = __reducers(
   __reducerSchema("cast_vote", CastVoteReducer),
   __reducerSchema("confirm_reported_task", ConfirmReportedTaskReducer),
   __reducerSchema("create_decision", CreateDecisionReducer),
+  __reducerSchema("create_event", CreateEventReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_wedding", CreateWeddingReducer),
   __reducerSchema("create_wedding_invitation", CreateWeddingInvitationReducer),
@@ -281,6 +300,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_side", SetSideReducer),
   __reducerSchema("set_webhook_secret", SetWebhookSecretReducer),
   __reducerSchema("set_wedding_agent", SetWeddingAgentReducer),
+  __reducerSchema("set_wedding_agent_instructions", SetWeddingAgentInstructionsReducer),
   __reducerSchema("toggle_task", ToggleTaskReducer),
   __reducerSchema("update_my_profile", UpdateMyProfileReducer),
 );
@@ -299,6 +319,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "ingest_source": Omit<typeof tablesSchema.schemaType.tables["ingestSource"], "accessorName"> & { readonly accessorName: "ingest_source" };
     /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
     readonly "wedding_agent": Omit<typeof tablesSchema.schemaType.tables["weddingAgent"], "accessorName"> & { readonly accessorName: "wedding_agent" };
+    /** @deprecated Use `weddingAgentSetting` instead. This alias will be removed in the next major version. */
+    readonly "wedding_agent_setting": Omit<typeof tablesSchema.schemaType.tables["weddingAgentSetting"], "accessorName"> & { readonly accessorName: "wedding_agent_setting" };
     /** @deprecated Use `weddingMessage` instead. This alias will be removed in the next major version. */
     readonly "wedding_message": Omit<typeof tablesSchema.schemaType.tables["weddingMessage"], "accessorName"> & { readonly accessorName: "wedding_message" };
   };
@@ -323,6 +345,7 @@ const tableAccessorAliases = {
   "decision_option": "decisionOption",
   "ingest_source": "ingestSource",
   "wedding_agent": "weddingAgent",
+  "wedding_agent_setting": "weddingAgentSetting",
   "wedding_message": "weddingMessage",
 } as const;
 
@@ -352,6 +375,8 @@ export type DbView = __DbViewBase & {
   readonly "ingest_source": __DbViewBase["ingestSource"];
   /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
   readonly "wedding_agent": __DbViewBase["weddingAgent"];
+  /** @deprecated Use `weddingAgentSetting` instead. This alias will be removed in the next major version. */
+  readonly "wedding_agent_setting": __DbViewBase["weddingAgentSetting"];
   /** @deprecated Use `weddingMessage` instead. This alias will be removed in the next major version. */
   readonly "wedding_message": __DbViewBase["weddingMessage"];
 };
@@ -366,6 +391,8 @@ export type Tables = __TablesBase & {
   readonly "ingest_source": __TablesBase["ingestSource"];
   /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
   readonly "wedding_agent": __TablesBase["weddingAgent"];
+  /** @deprecated Use `weddingAgentSetting` instead. This alias will be removed in the next major version. */
+  readonly "wedding_agent_setting": __TablesBase["weddingAgentSetting"];
   /** @deprecated Use `weddingMessage` instead. This alias will be removed in the next major version. */
   readonly "wedding_message": __TablesBase["weddingMessage"];
 };

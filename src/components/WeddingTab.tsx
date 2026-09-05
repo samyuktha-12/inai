@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, FileText, Image, MapPin, MessageCircle, Milestone, Store, Users, WalletCards } from 'lucide-react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { Timestamp } from 'spacetimedb';
+import { Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, FileText, Image, MapPin, MessageCircle, Milestone, Plus, Store, Upload, Users, WalletCards, X } from 'lucide-react';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 
@@ -88,13 +89,50 @@ function CalendarItinerary({ wedding, events }: { wedding?: { dateLabel: string 
   </section>;
 }
 
+function AddEvent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void }) {
+  const createEvent = useReducer(reducers.createEvent);
+  const [title, setTitle] = useState('');
+  const [venue, setVenue] = useState('');
+  const [startsAt, setStartsAt] = useState('');
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!title.trim()) return;
+    createEvent({ weddingId, title: title.trim(), venue: venue.trim() || undefined, startsAt: startsAt ? Timestamp.fromDate(new Date(startsAt)) : undefined });
+    onDone();
+  };
+  return <form className="quick-add-form" onSubmit={submit}>
+    <div className="quick-add-heading"><div><p className="section-label">Add an event</p><h2>Put a moment on the plan</h2></div><button type="button" onClick={onDone} aria-label="Close add event"><X size={18}/></button></div>
+    <label>Event name<input value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g. Mehendi" required maxLength={200} autoFocus /></label>
+    <label>When<input type="datetime-local" value={startsAt} onChange={event => setStartsAt(event.target.value)} /></label>
+    <label>Venue <span>optional</span><input value={venue} onChange={event => setVenue(event.target.value)} placeholder="e.g. The Leela Palace" maxLength={300} /></label>
+    <p>New event details are marked for the group to review.</p>
+    <button className="primary-button" type="submit"><Plus size={17}/> Add event</button>
+  </form>;
+}
+
+function ContactImport({ weddingId }: { weddingId: bigint }) {
+  const requestIngest = useReducer(reducers.requestIngest);
+  const [fileName, setFileName] = useState('');
+  const [queued, setQueued] = useState(false);
+  const queue = () => {
+    if (!fileName) return;
+    requestIngest({ weddingId, kind: 'guests' });
+    setQueued(true);
+  };
+  return <section className="contact-import panel"><Upload color="#087d6b"/><h2>Import contacts</h2><p>Choose a contacts CSV, spreadsheet, or phone export. The import worker will turn it into reviewable guest records; nobody is invited automatically.</p><label className="file-picker"><input type="file" accept=".csv,.tsv,.xlsx,.xls,text/csv" onChange={event => { setFileName(event.target.files?.[0]?.name ?? ''); setQueued(false); }} /><Upload size={16}/>{fileName || 'Choose a contacts file'}</label>{fileName && <button type="button" className="primary-button" onClick={queue} disabled={queued}>{queued ? 'Import queued for review' : 'Queue contact import'}</button>}</section>;
+}
+
 function ConnectWedding({ weddingId }: { weddingId: bigint }) {
   const { identity } = useSpacetimeDB();
   const [members] = useTable(tables.member);
   const [ingestSources] = useTable(tables.ingestSource);
   const [weddingAgents] = useTable(tables.weddingAgent);
+  const [agentSettings] = useTable(tables.weddingAgentSetting);
   const requestIngest = useReducer(reducers.requestIngest);
   const setWeddingAgent = useReducer(reducers.setWeddingAgent);
+  const setWeddingAgentInstructions = useReducer(reducers.setWeddingAgentInstructions);
+  const [editingAgent, setEditingAgent] = useState<string | null>(null);
+  const [instructionDraft, setInstructionDraft] = useState('');
   const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === identity?.toHexString());
   const canManage = membership?.role === 'couple' || membership?.role === 'planner';
   const queued = ingestSources.filter(source => source.weddingId === weddingId);
@@ -110,13 +148,17 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
     <div className="assistant-section"><div className="connect-intro"><p className="section-label">In-app assistants</p><h2>Set up your wedding team</h2><p>These assistants work inside Inai: they organise, draft, and track requests. A person still approves every decision, spend, and external commitment.</p></div><div className="assistant-list">{assistants.map(agent => {
       const current = agents.find(item => item.kind === agent.kind);
       const enabled = current?.enabled ?? false;
-      return <article className={`assistant-card ${enabled ? 'enabled' : ''}`} key={agent.kind}><span className="assistant-icon"><Bot size={19}/></span><div><b>{agent.title}</b><p>{agent.copy}</p></div>{canManage && <button className={enabled ? 'assistant-toggle enabled' : 'assistant-toggle'} type="button" aria-pressed={enabled} onClick={() => setWeddingAgent({ weddingId, kind: agent.kind, enabled: !enabled })}>{enabled ? 'Added' : 'Add'}</button>}</article>;
+      const setting = agentSettings.find(item => item.weddingId === weddingId && item.kind === agent.kind);
+      const editing = editingAgent === agent.kind;
+      const saveInstructions = () => { setWeddingAgentInstructions({ weddingId, kind: agent.kind, instructions: instructionDraft }); setEditingAgent(null); };
+      return <article className={`assistant-card ${enabled ? 'enabled' : ''} ${editing ? 'customising' : ''}`} key={agent.kind}><span className="assistant-icon"><Bot size={19}/></span><div><b>{agent.title}</b><p>{agent.copy}</p></div>{canManage && <div className="agent-actions"><button className={enabled ? 'assistant-toggle enabled' : 'assistant-toggle'} type="button" aria-pressed={enabled} onClick={() => setWeddingAgent({ weddingId, kind: agent.kind, enabled: !enabled })}>{enabled ? 'Added' : 'Add'}</button>{enabled && <button className="customise-agent" type="button" onClick={() => { setEditingAgent(editing ? null : agent.kind); setInstructionDraft(setting?.instructions ?? ''); }}>{editing ? 'Close' : 'Customise'}</button>}</div>}{editing && <div className="agent-customisation"><label>What should this assistant focus on?<textarea value={instructionDraft} onChange={event => setInstructionDraft(event.target.value)} maxLength={2000} placeholder="For example: Keep the family focused on the ceremony schedule and flag anything that needs a decision." /></label><p>It can organise and draft from this brief. It cannot make decisions, spend money, or contact anyone without the required approval.</p><button type="button" className="primary-button" onClick={saveInstructions}>Save instructions</button></div>}</article>;
     })}</div></div>
   </section>;
 }
 
 export default function WeddingTab({ weddingId }: { weddingId: bigint }) {
   const [view, setView] = useState<View>('calendar');
+  const [addingEvent, setAddingEvent] = useState(false);
   const [weddings] = useTable(tables.wedding);
   const [events] = useTable(tables.event);
   const [expenses] = useTable(tables.expense);
@@ -127,8 +169,8 @@ export default function WeddingTab({ weddingId }: { weddingId: bigint }) {
   const reported = weddingExpenses.filter(row => row.state === 'reported').length;
   const items: Record<Exclude<View, 'budget'>, React.ReactNode> = {
     calendar: <CalendarItinerary wedding={wedding} events={weddingEvents} />,
-    events: <><p className="section-label">Events</p>{weddingEvents.length ? weddingEvents.map(event => <div className={`inai-card ${event.state === 'reported' ? 'reported' : ''}`} key={String(event.id)}><span className="card-icon"><CalendarDays size={21}/></span><span className="card-content"><b>{event.title}</b><span>{event.venue ?? 'Venue to confirm'}{event.state === 'reported' ? ' · needs confirmation' : ''}</span></span></div>) : <div className="panel"><CalendarDays color="#087d6b"/><h2>Start with the events</h2><p>Events brought in by an import will appear here for confirmation.</p></div>}</>,
-    guests: <div className="panel"><Users color="#087d6b"/><h2>Guests, without the spreadsheet</h2><p>Bring in a guest list from Connect. Every imported person is reviewed before they are invited.</p></div>,
+    events: <><div className="view-action-heading"><p className="section-label">Events</p><button type="button" className="outline-action" onClick={() => setAddingEvent(true)}><Plus size={16}/> Add event</button></div>{addingEvent && <AddEvent weddingId={weddingId} onDone={() => setAddingEvent(false)} />}{weddingEvents.length ? weddingEvents.map(event => <div className={`inai-card ${event.state === 'reported' ? 'reported' : ''}`} key={String(event.id)}><span className="card-icon"><CalendarDays size={21}/></span><span className="card-content"><b>{event.title}</b><span>{event.venue ?? 'Venue to confirm'}{event.state === 'reported' ? ' · needs confirmation' : ''}</span></span></div>) : !addingEvent && <div className="panel"><CalendarDays color="#087d6b"/><h2>Start with the events</h2><p>Add an event now or bring in a calendar export. Your group reviews every new detail.</p></div>}</>,
+    guests: <ContactImport weddingId={weddingId} />,
     mood: <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>,
     connect: <ConnectWedding weddingId={weddingId}/>,
   };
