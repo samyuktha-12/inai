@@ -112,6 +112,18 @@ spacetime logs
 
 ## Next steps
 
+## Deploy the in-app Coordinator on Vercel
+
+The Vercel function at `POST /api/coordinator/draft` generates an in-app draft
+only. It never sends a message or changes confirmed wedding state.
+
+1. In Vercel, open the project’s **Settings → Environment Variables**.
+2. Add `OPENAI_API_KEY` for **Production** (and Preview if you use previews).
+3. Optionally add `OPENAI_MODEL` (defaults to `gpt-4.1-mini`).
+4. Deploy the project.
+
+Do not use a `VITE_` prefix: those values are bundled into the browser.
+
 - See the [Chat App Tutorial](https://spacetimedb.com/docs/intro/tutorials/chat-app) for a complete example
 - Read the [TypeScript SDK Reference](https://spacetimedb.com/docs/intro/core-concepts/clients/typescript-reference) for detailed API docs
 - Configure the production voice agents using [Sarvam Voice Agents](docs/sarvam-voice-agents.md).

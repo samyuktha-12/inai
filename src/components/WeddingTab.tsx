@@ -15,10 +15,10 @@ const sources = [
 ] as const;
 
 const assistants = [
-  { kind: 'coordinator', title: 'Coordinator', copy: 'Keeps open work visible and drafts check-ins for owners.' },
-  { kind: 'decision', title: 'Decision helper', copy: 'Summarises discussion and suggests a decision for a human to make.' },
-  { kind: 'guest_logistics', title: 'Guest logistics', copy: 'Organises RSVPs and travel details as drafts.' },
-  { kind: 'vendor_liaison', title: 'Vendor helper', copy: 'Prepares vendor follow-ups. It never calls without recorded consent.' },
+  { kind: 'coordinator', title: 'Coordinator', copy: 'Included with every new wedding. Tracks open work and drafts in-app follow-ups.' },
+  { kind: 'decision', title: 'Decision helper', copy: 'Summarises discussion and suggests a decision for a person to make in the app.' },
+  { kind: 'guest_logistics', title: 'Guest logistics', copy: 'Organises RSVP and travel details as in-app drafts.' },
+  { kind: 'vendor_liaison', title: 'Vendor helper', copy: 'Prepares vendor follow-up drafts in the app. It never contacts vendors without consent.' },
 ] as const;
 
 type View = 'calendar' | 'events' | 'budget' | 'guests' | 'mood' | 'connect';
@@ -107,7 +107,7 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
       const existing = queued.filter(item => item.kind === source.kind);
       return <article className="source-card" key={source.kind}><span className="source-icon"><Icon size={19}/></span><div><b>{source.title}</b><p>{source.copy}</p>{existing.length > 0 && <small><Check size={13}/> {existing.length} {existing.length === 1 ? 'source' : 'sources'} waiting for upload</small>}</div>{canManage && <button type="button" className="source-add" onClick={() => requestIngest({ weddingId, kind: source.kind })}>{existing.length ? 'Add another' : 'Add source'}</button>}</article>;
     })}</div>
-    <div className="assistant-section"><div className="connect-intro"><p className="section-label">Helpful assistants</p><h2>Set up your wedding team</h2><p>Assistants can organise, draft, and remind. A person still approves every decision, spend, and external commitment.</p></div><div className="assistant-list">{assistants.map(agent => {
+    <div className="assistant-section"><div className="connect-intro"><p className="section-label">In-app assistants</p><h2>Set up your wedding team</h2><p>These assistants work inside Inai: they organise, draft, and track requests. A person still approves every decision, spend, and external commitment.</p></div><div className="assistant-list">{assistants.map(agent => {
       const current = agents.find(item => item.kind === agent.kind);
       const enabled = current?.enabled ?? false;
       return <article className={`assistant-card ${enabled ? 'enabled' : ''}`} key={agent.kind}><span className="assistant-icon"><Bot size={19}/></span><div><b>{agent.title}</b><p>{agent.copy}</p></div>{canManage && <button className={enabled ? 'assistant-toggle enabled' : 'assistant-toggle'} type="button" aria-pressed={enabled} onClick={() => setWeddingAgent({ weddingId, kind: agent.kind, enabled: !enabled })}>{enabled ? 'Added' : 'Add'}</button>}</article>;

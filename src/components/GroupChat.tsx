@@ -17,6 +17,8 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
   const [messages, messagesReady] = useTable(tables.weddingMessage);
   const [participants] = useTable(tables.participant);
   const [members] = useTable(tables.member);
+  const [agents] = useTable(tables.weddingAgent);
+  const [coordinatorRequests] = useTable(tables.coordinatorRequest);
   const sendWeddingMessage = useReducer(reducers.sendWeddingMessage);
   const requestCoordinatorAction = useReducer(reducers.requestCoordinatorAction);
   const [draft, setDraft] = useState('');
@@ -30,6 +32,8 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
   const chatMessages = useMemo(() => messages.filter(message => message.weddingId === weddingId).sort((a, b) => Number(a.sentAt.microsSinceUnixEpoch - b.sentAt.microsSinceUnixEpoch)), [messages, weddingId]);
   const memberCount = members.filter(member => member.weddingId === weddingId).length;
   const weddingMembers = useMemo(() => members.filter(member => member.weddingId === weddingId).map(member => participants.find(person => person.identity.equals(member.identity))).filter((person): person is NonNullable<typeof person> => Boolean(person)), [members, participants, weddingId]);
+  const coordinatorEnabled = agents.some(agent => agent.weddingId === weddingId && agent.kind === 'coordinator' && agent.enabled);
+  const openCoordinatorRequests = coordinatorRequests.filter(request => request.weddingId === weddingId && request.status === 'open').length;
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [chatMessages.length]);
 
@@ -78,6 +82,7 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
         {!embedded && <button type="button" onClick={onClose} className="group-chat-close" aria-label="Close wedding chat"><X size={19} /></button>}
       </header>
       <div className="group-chat-notice"><Bot size={16} /><span>Your coordinator can read the conversation to prepare drafts. People still confirm every change.</span></div>
+      <div className="chat-coordinator-status"><span className="chat-coordinator-avatar"><Bot size={17}/></span><span><b>Coordinator</b><small>{coordinatorEnabled ? `${openCoordinatorRequests} open ${openCoordinatorRequests === 1 ? 'request' : 'requests'} · in-app only` : 'Add this assistant from Wedding → Connect'}</small></span></div>
       <div className="group-chat-messages" aria-live="polite">
         {!messagesReady ? <div className="group-chat-empty"><MessageCircle size={26} /><b>Loading conversation</b><p>Fetching the messages saved to your wedding.</p></div> : chatMessages.length === 0 ? <div className="group-chat-empty"><MessageCircle size={26} /><b>Start the conversation</b><p>Share an update, question, or plan with your wedding group.</p></div> : chatMessages.map(message => {
           const sender = participants.find(person => person.identity.equals(message.sentBy));
