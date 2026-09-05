@@ -179,6 +179,24 @@ const wedding_agent = table(
   }
 );
 
+// The planning group chat is a shared, human-authored coordination record.
+// Agent-written summaries belong in proposals, never in this chat as facts.
+const wedding_message = table(
+  { name: 'wedding_message', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    body: t.string(),
+    sentBy: t.identity(),
+    sentAt: t.timestamp(),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
 const decision = table(
   { name: 'decision', public: true },
   {
@@ -272,6 +290,7 @@ const spacetimedb = schema({
   expense,
   ingest_source,
   wedding_agent,
+  wedding_message,
 });
 export default spacetimedb;
 
@@ -497,6 +516,27 @@ export const setWeddingAgent = spacetimedb.reducer(
     } else {
       ctx.db.wedding_agent.insert({ id: 0n, weddingId, kind, enabled, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
     }
+  }
+);
+
+export const sendWeddingMessage = spacetimedb.reducer(
+  { weddingId: t.u64(), body: t.string() },
+  (ctx, { weddingId, body }) => {
+    if (!membershipFor(ctx, weddingId)) throw new SenderError('only wedding members can send messages');
+    const message = body.trim();
+    if (!message || message.length > 2000) throw new SenderError('message must be between 1 and 2000 characters');
+    ctx.db.wedding_message.insert({
+      id: 0n,
+      weddingId,
+      body: message,
+      sentBy: ctx.sender,
+      sentAt: ctx.timestamp,
+      state: 'confirmed',
+      source: 'manual',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
   }
 );
 

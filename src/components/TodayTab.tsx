@@ -1,8 +1,9 @@
+import { useMemo, useState } from 'react';
 import { Timestamp } from 'spacetimedb';
 import { tables, reducers } from '../module_bindings';
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
 import { colors, fonts } from '../theme';
-import { CheckCircle2, Mic } from 'lucide-react';
+import { CheckCircle2, MessageCircle, Mic, Send } from 'lucide-react';
 
 function formatDue(dueAt?: Timestamp) {
   if (!dueAt) return null;
@@ -20,6 +21,13 @@ const cardStyle: React.CSSProperties = {
   padding: '14px 16px',
 };
 
+function weddingCountdown(dateLabel?: string) {
+  if (!dateLabel) return null;
+  const eventDate = new Date(dateLabel);
+  if (Number.isNaN(eventDate.getTime())) return null;
+  return Math.ceil((eventDate.setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
+}
+
 export default function TodayTab({
   onNavigate,
   weddingId,
@@ -32,7 +40,13 @@ export default function TodayTab({
   const [decisions] = useTable(tables.decision);
   const [votes] = useTable(tables.vote);
   const [participants] = useTable(tables.participant);
+  const [ingestSources] = useTable(tables.ingestSource);
+  const [weddingAgents] = useTable(tables.weddingAgent);
+  const [messages] = useTable(tables.weddingMessage);
+  const [weddings] = useTable(tables.wedding);
   const toggleTask = useReducer(reducers.toggleTask);
+  const sendWeddingMessage = useReducer(reducers.sendWeddingMessage);
+  const [message, setMessage] = useState('');
 
   const myHex = identity?.toHexString();
   const me = participants.find(p => p.identity.toHexString() === myHex);
@@ -53,6 +67,17 @@ export default function TodayTab({
   );
 
   const totalCount = myOpenTasks.length + needsMyVote.length + needsMyLock.length;
+  const wedding = weddings.find(row => row.id === weddingId);
+  const daysToWedding = weddingCountdown(wedding?.dateLabel);
+  const weddingTasks = tasks.filter(task => task.weddingId === weddingId);
+  const sourcesWaiting = ingestSources.filter(source => source.weddingId === weddingId && source.status === 'awaiting_upload').length;
+  const assistantsActive = weddingAgents.filter(agent => agent.weddingId === weddingId && agent.enabled).length;
+  const chat = useMemo(() => messages.filter(item => item.weddingId === weddingId).sort((a, b) => Number(a.sentAt.microsSinceUnixEpoch - b.sentAt.microsSinceUnixEpoch)).slice(-40), [messages, weddingId]);
+  const postMessage = () => {
+    if (!message.trim()) return;
+    sendWeddingMessage({ weddingId, body: message.trim() });
+    setMessage('');
+  };
 
   return (
     <div>
@@ -72,6 +97,11 @@ export default function TodayTab({
         </p>
         <div className="today-count"><span>{totalCount || <CheckCircle2 size={26} />}</span></div>
       </div>
+
+      <section className="wedding-dashboard" aria-label="Wedding dashboard">
+        <div className="dashboard-heading"><p className="section-label">At a glance</p><span>{daysToWedding === null ? 'Set an exact date for a countdown' : daysToWedding < 0 ? 'Wedding day has passed' : `${daysToWedding} days to go`}</span></div>
+        <div className="metric-grid"><div><b>{daysToWedding === null ? '—' : Math.max(0, daysToWedding)}</b><span>days to wedding</span></div><div><b>{weddingTasks.filter(task => !task.done).length}</b><span>open tasks</span></div><div><b>{openDecisions.length}</b><span>open decisions</span></div><div><b>{sourcesWaiting + assistantsActive}</b><span>sources & helpers</span></div></div>
+      </section>
 
       <button type="button" className="voice-card" onClick={() => alert('Voice updates will be available when the voice worker is connected.')}>
         <span className="voice-ring"><Mic size={27}/></span><strong>Ask or update by voice</strong><span>Speak in Tamil, Hindi or English</span>
@@ -201,6 +231,13 @@ export default function TodayTab({
             See all tasks →
           </button>
         )}
+      </section>
+
+      <section className="wedding-chat" aria-label="Wedding group chat">
+        <div className="chat-heading"><div><p className="section-label">Wedding chat</p><h2>Keep the group in one place</h2></div><MessageCircle size={21}/></div>
+        <p className="chat-note">Share updates here. Important details can be turned into drafts for confirmation.</p>
+        <div className="chat-messages">{chat.length ? chat.map(item => { const person = participants.find(participant => participant.identity.equals(item.sentBy)); const own = item.sentBy.toHexString() === myHex; return <article className={own ? 'chat-message own' : 'chat-message'} key={String(item.id)}><b>{own ? 'You' : person?.name ?? 'Wedding member'}</b><p>{item.body}</p><time>{new Date(Number(item.sentAt.microsSinceUnixEpoch / 1000n)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></article>; }) : <p className="chat-empty">Start with a quick update for the family.</p>}</div>
+        <div className="chat-compose"><input value={message} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') postMessage(); }} maxLength={2000} placeholder="Write an update" aria-label="Write a wedding group message"/><button type="button" onClick={postMessage} disabled={!message.trim()} aria-label="Send message"><Send size={17}/></button></div>
       </section>
     </div>
   );

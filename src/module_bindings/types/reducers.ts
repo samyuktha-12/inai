@@ -17,6 +17,7 @@ import CreateWeddingInvitationReducer from "../create_wedding_invitation_reducer
 import LinkPhoneReducer from "../link_phone_reducer";
 import LockDecisionReducer from "../lock_decision_reducer";
 import RequestIngestReducer from "../request_ingest_reducer";
+import SendWeddingMessageReducer from "../send_wedding_message_reducer";
 import SetDeciderReducer from "../set_decider_reducer";
 import SetMembershipRoleReducer from "../set_membership_role_reducer";
 import SetMembershipSideReducer from "../set_membership_side_reducer";
@@ -39,6 +40,7 @@ export type CreateWeddingInvitationParams = __Infer<typeof CreateWeddingInvitati
 export type LinkPhoneParams = __Infer<typeof LinkPhoneReducer>;
 export type LockDecisionParams = __Infer<typeof LockDecisionReducer>;
 export type RequestIngestParams = __Infer<typeof RequestIngestReducer>;
+export type SendWeddingMessageParams = __Infer<typeof SendWeddingMessageReducer>;
 export type SetDeciderParams = __Infer<typeof SetDeciderReducer>;
 export type SetMembershipRoleParams = __Infer<typeof SetMembershipRoleReducer>;
 export type SetMembershipSideParams = __Infer<typeof SetMembershipSideReducer>;

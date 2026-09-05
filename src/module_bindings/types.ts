@@ -172,3 +172,17 @@ export const WeddingInvitation = __t.object("WeddingInvitation", {
 });
 export type WeddingInvitation = __Infer<typeof WeddingInvitation>;
 
+export const WeddingMessage = __t.object("WeddingMessage", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  body: __t.string(),
+  sentBy: __t.identity(),
+  sentAt: __t.timestamp(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type WeddingMessage = __Infer<typeof WeddingMessage>;
+

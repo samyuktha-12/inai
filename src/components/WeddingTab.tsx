@@ -40,7 +40,7 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
     <div className="source-list">{sources.map(source => {
       const Icon = source.icon;
       const existing = queued.filter(item => item.kind === source.kind);
-      return <article className="source-card" key={source.kind}><span className="source-icon"><Icon size={19}/></span><div><b>{source.title}</b><p>{source.copy}</p>{existing.length > 0 && <small><Check size={13}/> {existing.length} {existing.length === 1 ? 'source' : 'sources'} waiting for review</small>}</div>{canManage && <button type="button" className="source-add" onClick={() => requestIngest({ weddingId, kind: source.kind })}>{existing.length ? 'Add another' : 'Add source'}</button>}</article>;
+      return <article className="source-card" key={source.kind}><span className="source-icon"><Icon size={19}/></span><div><b>{source.title}</b><p>{source.copy}</p>{existing.length > 0 && <small><Check size={13}/> {existing.length} {existing.length === 1 ? 'source' : 'sources'} waiting for upload</small>}</div>{canManage && <button type="button" className="source-add" onClick={() => requestIngest({ weddingId, kind: source.kind })}>{existing.length ? 'Add another' : 'Add source'}</button>}</article>;
     })}</div>
     <div className="assistant-section"><div className="connect-intro"><p className="section-label">Helpful assistants</p><h2>Set up your wedding team</h2><p>Assistants can organise, draft, and remind. A person still approves every decision, spend, and external commitment.</p></div><div className="assistant-list">{assistants.map(agent => {
       const current = agents.find(item => item.kind === agent.kind);
