@@ -715,15 +715,18 @@ export const acceptWeddingInvitation = spacetimedb.reducer(
 );
 
 export const updateMyProfile = spacetimedb.reducer(
-  { name: t.string(), dateOfBirth: t.option(t.string()), gender: t.option(t.string()), mealPreference: t.option(t.string()) },
-  (ctx, { name, dateOfBirth, gender, mealPreference }) => {
+  { name: t.string(), phone: t.string(), dateOfBirth: t.option(t.string()), gender: t.option(t.string()), mealPreference: t.option(t.string()) },
+  (ctx, { name, phone, dateOfBirth, gender, mealPreference }) => {
     const person = ctx.db.participant.identity.find(ctx.sender);
     if (!person) throw new SenderError('sign in before updating your profile');
     if (person.profileState === 'confirmed' && name !== person.name) {
       throw new SenderError('your name is set during profile setup');
     }
+    if (!/^\+91[6-9][0-9]{9}$/.test(phone)) throw new SenderError('enter a valid Indian mobile number, for example +919360305804');
+    const [phoneOwner] = [...ctx.db.participant.by_phone.filter(phone)];
+    if (phoneOwner && !phoneOwner.identity.equals(ctx.sender)) throw new SenderError('this phone number is already linked to another person');
     if (gender !== undefined && !['woman', 'man', 'non_binary', 'prefer_not_to_say'].includes(gender)) throw new SenderError('invalid gender');
-    ctx.db.participant.identity.update({ ...person, name, dateOfBirth, gender, mealPreference, profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
+    ctx.db.participant.identity.update({ ...person, name, phone, dateOfBirth, gender, mealPreference, profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
   }
 );
 
