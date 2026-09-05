@@ -3,11 +3,18 @@
 
 /* eslint-disable */
 /* tslint:disable */
-import { type Infer as __Infer } from 'spacetimedb';
+import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
-import AddReducer from '../add_reducer';
-import SayHelloReducer from '../say_hello_reducer';
+import CastVoteReducer from "../cast_vote_reducer";
+import CreateDecisionReducer from "../create_decision_reducer";
+import CreateTaskReducer from "../create_task_reducer";
+import SetNameReducer from "../set_name_reducer";
+import ToggleTaskReducer from "../toggle_task_reducer";
 
-export type AddParams = __Infer<typeof AddReducer>;
-export type SayHelloParams = __Infer<typeof SayHelloReducer>;
+export type CastVoteParams = __Infer<typeof CastVoteReducer>;
+export type CreateDecisionParams = __Infer<typeof CreateDecisionReducer>;
+export type CreateTaskParams = __Infer<typeof CreateTaskReducer>;
+export type SetNameParams = __Infer<typeof SetNameReducer>;
+export type ToggleTaskParams = __Infer<typeof ToggleTaskReducer>;
+

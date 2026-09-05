@@ -8,9 +8,45 @@ import {
   t as __t,
   type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
-} from 'spacetimedb';
+} from "spacetimedb";
 
-export const Person = __t.object('Person', {
-  name: __t.string(),
+export const Decision = __t.object("Decision", {
+  id: __t.u64(),
+  title: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
 });
-export type Person = __Infer<typeof Person>;
+export type Decision = __Infer<typeof Decision>;
+
+export const DecisionOption = __t.object("DecisionOption", {
+  id: __t.u64(),
+  decisionId: __t.u64(),
+  label: __t.string(),
+});
+export type DecisionOption = __Infer<typeof DecisionOption>;
+
+export const Participant = __t.object("Participant", {
+  identity: __t.identity(),
+  name: __t.string(),
+  connected: __t.bool(),
+});
+export type Participant = __Infer<typeof Participant>;
+
+export const Task = __t.object("Task", {
+  id: __t.u64(),
+  title: __t.string(),
+  ownerIdentity: __t.identity(),
+  done: __t.bool(),
+  createdAt: __t.timestamp(),
+});
+export type Task = __Infer<typeof Task>;
+
+export const Vote = __t.object("Vote", {
+  id: __t.u64(),
+  decisionId: __t.u64(),
+  optionId: __t.u64(),
+  voterIdentity: __t.identity(),
+  votedAt: __t.timestamp(),
+});
+export type Vote = __Infer<typeof Vote>;
+
