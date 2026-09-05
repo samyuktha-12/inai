@@ -13,13 +13,13 @@ import {
 export default __t.row({
   id: __t.u64().primaryKey(),
   weddingId: __t.u64().name("wedding_id"),
-  title: __t.string(),
-  note: __t.string(),
-  palette: __t.string(),
+  name: __t.string(),
+  side: __t.option(__t.string()),
+  homeCity: __t.option(__t.string()).name("home_city"),
+  rsvpStatus: __t.string().name("rsvp_status"),
   state: __t.string(),
   source: __t.string(),
   updatedBy: __t.identity().name("updated_by"),
   confidence: __t.f32(),
   updatedAt: __t.timestamp().name("updated_at"),
-  sourceUrl: __t.option(__t.string()).name("source_url"),
 });

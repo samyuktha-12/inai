@@ -202,20 +202,22 @@ function BudgetWorkspace({ weddingId }: { weddingId: bigint }) {
 
 function ContactImport({ weddingId }: { weddingId: bigint }) {
   const requestIngest = useReducer(reducers.requestIngest);
+  const [guests] = useTable(tables.guest);
   const [fileName, setFileName] = useState('');
   const [queued, setQueued] = useState(false);
+  const guestList = guests.filter(guest => guest.weddingId === weddingId);
   const queue = () => {
     if (!fileName) return;
     requestIngest({ weddingId, kind: 'guests' });
     setQueued(true);
   };
-  return <section className="contact-import panel"><Upload color="#087d6b"/><h2>Import contacts</h2><p>Choose a contacts CSV, spreadsheet, or phone export. The import worker will turn it into reviewable guest records; nobody is invited automatically.</p><label className="file-picker"><input type="file" accept=".csv,.tsv,.xlsx,.xls,text/csv" onChange={event => { setFileName(event.target.files?.[0]?.name ?? ''); setQueued(false); }} /><Upload size={16}/>{fileName || 'Choose a contacts file'}</label>{fileName && <button type="button" className="primary-button" onClick={queue} disabled={queued}>{queued ? 'Import queued for review' : 'Queue contact import'}</button>}</section>;
+  return <section className="contact-import panel"><Upload color="#087d6b"/><h2>Guest list</h2><p>Choose a contacts CSV, spreadsheet, or phone export. The import worker turns it into reviewable guest records; nobody is invited automatically.</p><label className="file-picker"><input type="file" accept=".csv,.tsv,.xlsx,.xls,text/csv" onChange={event => { setFileName(event.target.files?.[0]?.name ?? ''); setQueued(false); }} /><Upload size={16}/>{fileName || 'Choose a contacts file'}</label>{fileName && <button type="button" className="primary-button" onClick={queue} disabled={queued}>{queued ? 'Import queued for review' : 'Queue contact import'}</button>}{guestList.length > 0 && <div className="guest-roster"><div><b>Imported guests</b><small>{guestList.length} records · review before sending anything</small></div>{guestList.map(guest => <article key={String(guest.id)}><span><b>{guest.name}</b><small>{guest.side === 'bride' ? 'Bride’s side' : guest.side === 'groom' ? 'Groom’s side' : 'Family'}{guest.homeCity ? ` · ${guest.homeCity}` : ''}</small></span><em className={guest.rsvpStatus}>{guest.rsvpStatus === 'confirmed' ? 'Coming' : guest.rsvpStatus === 'declined' ? 'Not coming' : 'Awaiting reply'}</em></article>)}</div>}</section>;
 }
 
 function MoodBoard({ weddingId }: { weddingId: bigint }) {
   const [moodItems] = useTable(tables.moodItem);
   const items = moodItems.filter(item => item.weddingId === weddingId);
-  return <section className="mood-board"><div className="mood-board-heading"><div><p className="section-label">Pinterest inspiration</p><h2>A feeling to build from</h2><p>These are source ideas, not final choices. Bring any one into Decide when the family is ready.</p></div><span className="mood-review-badge">Needs review</span></div>{items.length ? <div className="mood-grid">{items.map(item => <article className="mood-card" key={String(item.id)}><div className="mood-swatch" style={{ background: `linear-gradient(135deg, ${item.palette})` }} /><div><small>Pinterest · needs review</small><h3>{item.title}</h3><p>{item.note}</p></div></article>)}</div> : <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>}</section>;
+  return <section className="mood-board"><div className="mood-board-heading"><div><p className="section-label">Pinterest inspiration</p><h2>A feeling to build from</h2><p>These are source ideas, not final choices. Bring any one into Decide when the family is ready.</p></div><span className="mood-review-badge">Needs review</span></div>{items.length ? <div className="mood-grid">{items.map(item => <article className="mood-card" key={String(item.id)}><div className="mood-swatch" style={{ background: `linear-gradient(135deg, ${item.palette})` }} /><div><small>Pinterest import · needs review</small><h3>{item.title}</h3><p>{item.note}</p>{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer">Open source board</a>}</div></article>)}</div> : <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>}</section>;
 }
 
 function EventWorkspace({ weddingId }: { weddingId: bigint }) {
@@ -340,7 +342,8 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
     <div className="source-list">{sources.map(source => {
       const Icon = source.icon;
       const existing = queued.filter(item => item.kind === source.kind);
-      return <article className="source-card" key={source.kind}><span className="source-icon"><Icon size={19}/></span><div><b>{source.title}</b><p>{source.copy}</p>{existing.length > 0 && <small><Check size={13}/> {existing.length} {existing.length === 1 ? 'source' : 'sources'} added for review</small>}</div>{canManage && <button type="button" className="source-add" onClick={() => setUploading(source)}>{existing.length ? 'Add another' : 'Add source'}</button>}</article>;
+      const itemCount = existing.reduce((sum, item) => sum + Number(item.itemCount), 0);
+      return <article className="source-card" key={source.kind}><span className="source-icon"><Icon size={19}/></span><div><b>{source.title}</b><p>{source.copy}</p>{existing.length > 0 && <small><Check size={13}/> {itemCount ? `${itemCount} items imported` : `${existing.length} ${existing.length === 1 ? 'source' : 'sources'} added for review`}</small>}</div>{canManage && <button type="button" className="source-add" onClick={() => setUploading(source)}>{existing.length ? 'Add another' : 'Add source'}</button>}</article>;
     })}</div>
     {uploading && <SourceUpload weddingId={weddingId} source={uploading} onClose={() => setUploading(null)} />}
     <div className="assistant-section"><div className="connect-intro assistant-intro"><div><p className="section-label">In-app assistants</p><h2>Set up your wedding team</h2><p>These assistants work inside Inai: they organise, draft, and track requests. A person still approves every decision, spend, and external commitment.</p></div>{canManage && <button type="button" className="outline-action" onClick={() => setAddingCustomAgent(true)}><Plus size={16}/> Add assistant</button>}</div>{addingCustomAgent && <AddCustomAgent weddingId={weddingId} onDone={() => setAddingCustomAgent(false)} />}<div className="assistant-list">{assistants.map(agent => {

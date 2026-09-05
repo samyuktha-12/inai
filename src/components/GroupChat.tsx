@@ -98,7 +98,7 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
           const own = message.sentBy.toHexString() === myHex;
           return <article className={`group-chat-message ${own ? 'own' : ''}`} key={String(message.id)}>
             {!own && <span className="message-avatar" aria-hidden>{initials(name)}</span>}
-            <div className="message-bubble">{!own && <b>{name}</b>}<p>{message.body}</p><time>{messageTime(message.sentAt)}</time></div>
+            <div className="message-bubble">{!own && <b>{name}</b>}{message.source === 'whatsapp' && <small className="imported-message-label">WhatsApp import · needs review</small>}<p>{message.body}</p><time>{messageTime(message.sentAt)}</time></div>
           </article>;
         })}
         <div ref={endRef} />

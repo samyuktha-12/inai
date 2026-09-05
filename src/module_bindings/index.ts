@@ -84,6 +84,7 @@ import DecisionOptionRow from "./decision_option_table";
 import EventRow from "./event_table";
 import EventChecklistItemRow from "./event_checklist_item_table";
 import ExpenseRow from "./expense_table";
+import GuestRow from "./guest_table";
 import IngestSourceRow from "./ingest_source_table";
 import MemberRow from "./member_table";
 import MoodItemRow from "./mood_item_table";
@@ -211,6 +212,20 @@ const tablesSchema = __schema({
       { name: 'expense_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ExpenseRow),
+  guest: __table({
+    name: 'guest',
+    indexes: [
+      { accessor: 'id', name: 'guest_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'guest_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'guest_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, GuestRow),
   ingestSource: __table({
     name: 'ingest_source',
     indexes: [

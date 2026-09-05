@@ -117,6 +117,21 @@ export const Expense = __t.object("Expense", {
 });
 export type Expense = __Infer<typeof Expense>;
 
+export const Guest = __t.object("Guest", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  name: __t.string(),
+  side: __t.option(__t.string()),
+  homeCity: __t.option(__t.string()),
+  rsvpStatus: __t.string(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type Guest = __Infer<typeof Guest>;
+
 export const IngestSource = __t.object("IngestSource", {
   id: __t.u64(),
   weddingId: __t.u64(),
@@ -154,6 +169,7 @@ export const MoodItem = __t.object("MoodItem", {
   updatedBy: __t.identity(),
   confidence: __t.f32(),
   updatedAt: __t.timestamp(),
+  sourceUrl: __t.option(__t.string()),
 });
 export type MoodItem = __Infer<typeof MoodItem>;
 

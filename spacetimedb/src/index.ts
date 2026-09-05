@@ -288,6 +288,9 @@ const mood_item = table(
     updatedBy: t.identity(),
     confidence: t.f32().default(1),
     updatedAt: t.timestamp(),
+    // A user-provided board or pin reference. The module never fetches it;
+    // importing files or images is handled by the external ingest worker.
+    sourceUrl: t.option(t.string()).default(undefined),
   }
 );
 
@@ -303,6 +306,26 @@ const event_checklist_item = table(
     done: t.bool().default(false),
     state: t.string().default('reported'),
     source: t.string().default('template'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+// Guest rows are deliberately light-weight for Phase 0. Imports create
+// reviewable records; contact data stays in the external worker rather than
+// replicating phone numbers to the group surface.
+const guest = table(
+  { name: 'guest', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    name: t.string(),
+    side: t.option(t.string()).default(undefined),
+    homeCity: t.option(t.string()).default(undefined),
+    rsvpStatus: t.string().default('awaiting_response'),
+    state: t.string().default('reported'),
+    source: t.string().default('guests'),
     updatedBy: t.identity(),
     confidence: t.f32().default(1),
     updatedAt: t.timestamp(),
@@ -452,6 +475,7 @@ const spacetimedb = schema({
   custom_wedding_agent,
   mood_item,
   event_checklist_item,
+  guest,
   wedding_message,
   coordinator_request,
 });
@@ -781,14 +805,55 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     if ([...ctx.db.vendor.iter()].some(item => item.weddingId === weddingId && item.name === name)) continue;
     ctx.db.vendor.insert({ id: 0n, weddingId, name, category, bookingState, note, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
   }
-  for (const [title, note, palette] of [
-    ['Soft jasmine ceremony', 'White jasmine, warm ivory, and a quiet brass glow.', '#f4efe2,#d8c79f,#85765c'],
-    ['Marigold gathering', 'A bright marigold moment for the mehendi entrance.', '#f5cf5c,#d98632,#7c5633'],
-    ['Indigo sangeet', 'Deep indigo textiles with candlelight and mirrored details.', '#25375c,#7d91bd,#d8c8ac'],
-    ['Coconut welcome', 'Tender coconut, cane, and leafy greens for guests arriving.', '#dce7d4,#a6b98d,#e8d7b4'],
+  const caterer = [...ctx.db.vendor.iter()].find(item => item.weddingId === weddingId && item.name === 'Saffron Table');
+  if (caterer && ![...ctx.db.vendor_consent.by_vendor.filter(caterer.id)].length) {
+    ctx.db.vendor_consent.insert({ id: 0n, weddingId, vendorId: caterer.id, consented: true, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  for (const [title, note, palette, sourceUrl] of [
+    ['Soft jasmine ceremony', 'White jasmine, warm ivory, and a quiet brass glow.', '#f4efe2,#d8c79f,#85765c', 'https://www.pinterest.com/instyle/wedding-inspiration/'],
+    ['Marigold gathering', 'A bright marigold moment for the mehendi entrance.', '#f5cf5c,#d98632,#7c5633', 'https://www.pinterest.com/instyle/wedding-inspiration/'],
+    ['Indigo sangeet', 'Deep indigo textiles with candlelight and mirrored details.', '#25375c,#7d91bd,#d8c8ac', 'https://in.pinterest.com/beedilcs/wedding-inspiration/'],
+    ['Coconut welcome', 'Tender coconut, cane, and leafy greens for guests arriving.', '#dce7d4,#a6b98d,#e8d7b4', 'https://in.pinterest.com/beedilcs/wedding-inspiration/'],
   ] as const) {
-    if ([...ctx.db.mood_item.iter()].some(item => item.weddingId === weddingId && item.title === title)) continue;
-    ctx.db.mood_item.insert({ id: 0n, weddingId, title, note, palette, state: 'reported', source: 'pinterest', updatedBy: ctx.sender, confidence: 0.9, updatedAt: ctx.timestamp });
+    const existing = [...ctx.db.mood_item.iter()].find(item => item.weddingId === weddingId && item.title === title);
+    if (existing) {
+      if (!existing.sourceUrl) ctx.db.mood_item.id.update({ ...existing, sourceUrl, updatedBy: ctx.sender, updatedAt: ctx.timestamp });
+      continue;
+    }
+    ctx.db.mood_item.insert({ id: 0n, weddingId, title, note, palette, state: 'reported', source: 'pinterest', updatedBy: ctx.sender, confidence: 0.9, updatedAt: ctx.timestamp, sourceUrl });
+  }
+  for (const [name, side, homeCity, rsvpStatus] of [
+    ['Lakshmi Iyer', 'bride', 'Chennai', 'confirmed'],
+    ['Karthik Iyer', 'bride', 'Bengaluru', 'awaiting_response'],
+    ['Meera Menon', 'bride', 'Chennai', 'confirmed'],
+    ['Arjun Nair', 'groom', 'Kochi', 'awaiting_response'],
+    ['Vikram Shah', 'groom', 'Mumbai', 'declined'],
+    ['Nandini Rao', 'groom', 'Hyderabad', 'confirmed'],
+  ] as const) {
+    if ([...ctx.db.guest.iter()].some(item => item.weddingId === weddingId && item.name === name)) continue;
+    ctx.db.guest.insert({ id: 0n, weddingId, name, side, homeCity, rsvpStatus, state: 'reported', source: 'guests', updatedBy: ctx.sender, confidence: 0.88, updatedAt: ctx.timestamp });
+  }
+  for (const [kind, itemCount] of [
+    ['pinterest', 4], ['whatsapp', 8], ['guests', 6], ['quotes', 4], ['calendar', 3], ['vendor_details', 4],
+  ] as const) {
+    if ([...ctx.db.ingest_source.iter()].some(item => item.weddingId === weddingId && item.kind === kind && item.status === 'imported')) continue;
+    ctx.db.ingest_source.insert({ id: 0n, weddingId, kind, status: 'imported', itemCount, submittedBy: ctx.sender, createdAt: ctx.timestamp });
+  }
+  for (const kind of ['decision', 'guest_logistics', 'vendor_liaison'] as const) {
+    if ([...ctx.db.wedding_agent.by_wedding_kind.filter([weddingId, kind])].length) continue;
+    ctx.db.wedding_agent.insert({ id: 0n, weddingId, kind, enabled: true, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  for (const [kind, instructions] of [
+    ['coordinator', 'Keep the immediate family on the ceremony, guest list, and open planning tasks. Prepare follow-ups for review only.'],
+    ['decision', 'Summarise choices clearly and show the family what needs a final call.'],
+    ['guest_logistics', 'Organise RSVP drafts and note which guests may need travel details.'],
+    ['vendor_liaison', 'Prepare concise follow-up drafts for confirmed vendors. Never send anything without consent.'],
+  ] as const) {
+    if ([...ctx.db.wedding_agent_setting.by_wedding_kind.filter([weddingId, kind])].length) continue;
+    ctx.db.wedding_agent_setting.insert({ id: 0n, weddingId, kind, instructions, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  if (![...ctx.db.custom_wedding_agent.iter()].some(item => item.weddingId === weddingId && item.name === 'Ritual guide')) {
+    ctx.db.custom_wedding_agent.insert({ id: 0n, weddingId, name: 'Ritual guide', instructions: 'Organise the ceremony ritual sequence and prepare a simple family run-sheet for review.', enabled: true, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
   }
   if (![...ctx.db.wedding_agent.by_wedding_kind.filter([weddingId, 'menu_planner'])].length) {
     ctx.db.wedding_agent.insert({ id: 0n, weddingId, kind: 'menu_planner', enabled: true, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
@@ -825,6 +890,10 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     if ([...ctx.db.task.iter()].some(item => item.weddingId === weddingId && item.title === title)) continue;
     ctx.db.task.insert({ id: 0n, weddingId, title, ownerIdentity, done: false, createdAt: ctx.timestamp, dueAt: ctx.timestamp, state: 'confirmed', source: 'manual', reportedBy: undefined, confidence: undefined, reportedAt: undefined });
   }
+  const guestListTask = [...ctx.db.task.iter()].find(item => item.weddingId === weddingId && item.title === 'Share the final guest list with catering');
+  if (guestListTask && ![...ctx.db.coordinator_request.iter()].some(item => item.weddingId === weddingId && item.instruction === 'Ask Priya whether the guest-list additions are ready for the caterer.')) {
+    ctx.db.coordinator_request.insert({ id: 0n, weddingId, kind: 'followup', targetIdentity: priyaIdentity, instruction: 'Ask Priya whether the guest-list additions are ready for the caterer.', scheduledFor: undefined, status: 'open', state: 'confirmed', source: 'manual', requestedBy: rahulIdentity, requestedAt: ctx.timestamp, updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp, taskId: guestListTask.id });
+  }
   for (const [body, sentBy] of [
     ['The floral samples are in. I have put the three options on Decide for everyone to see.', priyaIdentity],
     ['I will send the first guest list to catering after we review the family additions tonight.', rahulIdentity],
@@ -833,8 +902,25 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     if ([...ctx.db.wedding_message.iter()].some(message => message.weddingId === weddingId && message.body === body)) continue;
     ctx.db.wedding_message.insert({ id: 0n, weddingId, body, sentBy, sentAt: ctx.timestamp, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
   }
+  for (const [body, sentBy] of [
+    ['Mummy prefers a simple jasmine entrance. Can we keep the marigolds for the mehendi?', priyaIdentity],
+    ['I have added the cousins from Bengaluru to the guest sheet. A few RSVPs are still pending.', rahulIdentity],
+    ['The sangeet rehearsal can start at 5:30 pm if the sound team is ready by then.', rahulIdentity],
+    ['The caterer shared two lunch menus. Please keep one Jain-friendly option in the shortlist.', priyaIdentity],
+    ['I saved a few softer ivory-and-jasmine ideas from the Pinterest board for everyone to review.', priyaIdentity],
+  ] as const) {
+    if ([...ctx.db.wedding_message.iter()].some(message => message.weddingId === weddingId && message.body === body)) continue;
+    ctx.db.wedding_message.insert({ id: 0n, weddingId, body, sentBy, sentAt: ctx.timestamp, state: 'reported', source: 'whatsapp', updatedBy: ctx.sender, confidence: 0.86, updatedAt: ctx.timestamp });
+  }
   if (![...ctx.db.decision.iter()].some(decision => decision.weddingId === weddingId && decision.title === 'Which welcome drink should guests receive?')) {
     seedDecision(ctx, weddingId, 'Which welcome drink should guests receive?', ['Tender coconut cooler', 'Rose milk', 'Filter coffee bar']);
+  }
+  for (const [title, options] of [
+    ['Which sangeet opening should the family use?', ['Bride’s cousins dance', 'Couple entry', 'Parents’ welcome']],
+    ['Which ceremony flower direction should we review?', ['Mostly jasmine', 'Jasmine with marigold', 'Soft ivory and greenery']],
+  ] as const) {
+    if ([...ctx.db.decision.iter()].some(decision => decision.weddingId === weddingId && decision.title === title)) continue;
+    seedDecision(ctx, weddingId, title, [...options]);
   }
 });
 
