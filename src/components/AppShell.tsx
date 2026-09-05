@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Home, Vote, MapPin, Users, LogOut, ArrowLeft, X } from 'lucide-react';
+import { Home, Vote, MapPin, Users, LogOut, HeartHandshake, X } from 'lucide-react';
 import { tables, reducers } from '../module_bindings';
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
 import TodayTab from './TodayTab';
@@ -235,7 +235,7 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
             padding: 0,
           }}
         >
-          <ArrowLeft size={16} /> Inai
+          <HeartHandshake size={18} /> Inai <i className="nav-diamond" aria-hidden />
         </button>
         <nav className="inai-nav" aria-label="Primary navigation">
           <div className="inai-nav-inner">
@@ -262,15 +262,7 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
           </div>
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              background: isActive ? colors.green : colors.hairline,
-            }}
-            title={isActive ? 'Connected' : 'Connecting…'}
-          />
+          <span className="connection-chip" title={isActive ? 'Connected' : 'Connecting…'}>{isActive ? 'Live plan' : 'Connecting'}</span>
           <button
             type="button"
             onClick={() => setPeopleOpen(true)}
@@ -292,6 +284,8 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
           </button>
         </div>
       </header>
+
+      <div className="dotted-seam" aria-hidden />
 
       <main className="inai-page">
         {tab === 'today' && <TodayTab weddingId={weddingId} onNavigate={t => setTab(t === 'tasks' ? 'wedding' : t)} onOpenChat={() => setChatOpen(true)} />}
