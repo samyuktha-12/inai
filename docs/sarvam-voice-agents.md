@@ -49,7 +49,7 @@ The secret must match the value set through Inai's `setWebhookSecret` reducer.
 
 - Lifecycle: **on_start**, and also enabled **during conversation**.
 - Method: `GET`
-- URL: `https://maincloud.spacetimedb.com/database/DATABASE_ID/voice/context`
+- URL: `https://maincloud.spacetimedb.com/v1/database/DATABASE_ID/route/voice/context`
 - Header: `Authorization: Bearer {{INAI_VOICE_WEBHOOK_SECRET}}`
 - Query parameter: `phone` = select Sarvam's **User Identifier** call-context
   variable from the variable picker (inbound calls supply it in E.164 format).
