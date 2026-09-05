@@ -10,6 +10,7 @@ import AcceptWeddingInvitationReducer from "../accept_wedding_invitation_reducer
 import AddMemberReducer from "../add_member_reducer";
 import CastVoteReducer from "../cast_vote_reducer";
 import ConfirmReportedTaskReducer from "../confirm_reported_task_reducer";
+import CreateCustomWeddingAgentReducer from "../create_custom_wedding_agent_reducer";
 import CreateDecisionReducer from "../create_decision_reducer";
 import CreateEventReducer from "../create_event_reducer";
 import CreateTaskReducer from "../create_task_reducer";
@@ -36,6 +37,7 @@ export type AcceptWeddingInvitationParams = __Infer<typeof AcceptWeddingInvitati
 export type AddMemberParams = __Infer<typeof AddMemberReducer>;
 export type CastVoteParams = __Infer<typeof CastVoteReducer>;
 export type ConfirmReportedTaskParams = __Infer<typeof ConfirmReportedTaskReducer>;
+export type CreateCustomWeddingAgentParams = __Infer<typeof CreateCustomWeddingAgentReducer>;
 export type CreateDecisionParams = __Infer<typeof CreateDecisionReducer>;
 export type CreateEventParams = __Infer<typeof CreateEventReducer>;
 export type CreateTaskParams = __Infer<typeof CreateTaskReducer>;

@@ -29,6 +29,20 @@ export const CoordinatorRequest = __t.object("CoordinatorRequest", {
 });
 export type CoordinatorRequest = __Infer<typeof CoordinatorRequest>;
 
+export const CustomWeddingAgent = __t.object("CustomWeddingAgent", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  name: __t.string(),
+  instructions: __t.string(),
+  enabled: __t.bool(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type CustomWeddingAgent = __Infer<typeof CustomWeddingAgent>;
+
 export const Decision = __t.object("Decision", {
   id: __t.u64(),
   title: __t.string(),

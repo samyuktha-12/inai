@@ -38,6 +38,7 @@ import AcceptWeddingInvitationReducer from "./accept_wedding_invitation_reducer"
 import AddMemberReducer from "./add_member_reducer";
 import CastVoteReducer from "./cast_vote_reducer";
 import ConfirmReportedTaskReducer from "./confirm_reported_task_reducer";
+import CreateCustomWeddingAgentReducer from "./create_custom_wedding_agent_reducer";
 import CreateDecisionReducer from "./create_decision_reducer";
 import CreateEventReducer from "./create_event_reducer";
 import CreateTaskReducer from "./create_task_reducer";
@@ -64,6 +65,7 @@ import UpdateMyProfileReducer from "./update_my_profile_reducer";
 
 // Import all table schema definitions
 import CoordinatorRequestRow from "./coordinator_request_table";
+import CustomWeddingAgentRow from "./custom_wedding_agent_table";
 import DecisionRow from "./decision_table";
 import DecisionOptionRow from "./decision_option_table";
 import EventRow from "./event_table";
@@ -97,6 +99,20 @@ const tablesSchema = __schema({
       { name: 'coordinator_request_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, CoordinatorRequestRow),
+  customWeddingAgent: __table({
+    name: 'custom_wedding_agent',
+    indexes: [
+      { accessor: 'id', name: 'custom_wedding_agent_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'custom_wedding_agent_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'custom_wedding_agent_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, CustomWeddingAgentRow),
   decision: __table({
     name: 'decision',
     indexes: [
@@ -282,6 +298,7 @@ const reducersSchema = __reducers(
   __reducerSchema("add_member", AddMemberReducer),
   __reducerSchema("cast_vote", CastVoteReducer),
   __reducerSchema("confirm_reported_task", ConfirmReportedTaskReducer),
+  __reducerSchema("create_custom_wedding_agent", CreateCustomWeddingAgentReducer),
   __reducerSchema("create_decision", CreateDecisionReducer),
   __reducerSchema("create_event", CreateEventReducer),
   __reducerSchema("create_task", CreateTaskReducer),
@@ -313,6 +330,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
   tables: typeof tablesSchema.schemaType.tables & {
     /** @deprecated Use `coordinatorRequest` instead. This alias will be removed in the next major version. */
     readonly "coordinator_request": Omit<typeof tablesSchema.schemaType.tables["coordinatorRequest"], "accessorName"> & { readonly accessorName: "coordinator_request" };
+    /** @deprecated Use `customWeddingAgent` instead. This alias will be removed in the next major version. */
+    readonly "custom_wedding_agent": Omit<typeof tablesSchema.schemaType.tables["customWeddingAgent"], "accessorName"> & { readonly accessorName: "custom_wedding_agent" };
     /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
     readonly "decision_option": Omit<typeof tablesSchema.schemaType.tables["decisionOption"], "accessorName"> & { readonly accessorName: "decision_option" };
     /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
@@ -342,6 +361,7 @@ const REMOTE_MODULE = {
 
 const tableAccessorAliases = {
   "coordinator_request": "coordinatorRequest",
+  "custom_wedding_agent": "customWeddingAgent",
   "decision_option": "decisionOption",
   "ingest_source": "ingestSource",
   "wedding_agent": "weddingAgent",
@@ -369,6 +389,8 @@ type __DbViewBase = __DbConnectionImpl<typeof REMOTE_MODULE>["db"];
 export type DbView = __DbViewBase & {
   /** @deprecated Use `coordinatorRequest` instead. This alias will be removed in the next major version. */
   readonly "coordinator_request": __DbViewBase["coordinatorRequest"];
+  /** @deprecated Use `customWeddingAgent` instead. This alias will be removed in the next major version. */
+  readonly "custom_wedding_agent": __DbViewBase["customWeddingAgent"];
   /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
   readonly "decision_option": __DbViewBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
@@ -385,6 +407,8 @@ type __TablesBase = __QueryBuilder<typeof tablesSchema.schemaType>;
 export type Tables = __TablesBase & {
   /** @deprecated Use `coordinatorRequest` instead. This alias will be removed in the next major version. */
   readonly "coordinator_request": __TablesBase["coordinatorRequest"];
+  /** @deprecated Use `customWeddingAgent` instead. This alias will be removed in the next major version. */
+  readonly "custom_wedding_agent": __TablesBase["customWeddingAgent"];
   /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
   readonly "decision_option": __TablesBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */

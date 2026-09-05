@@ -142,7 +142,61 @@ const expense = table(
     label: t.string(),
     amountPaise: t.i64(),
     paid: t.bool(),
+    vendorId: t.option(t.u64()).default(undefined),
     state: t.string().default('reported'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+// A budget is a human-set planning limit. It is deliberately separate from
+// expenses so a quote or a reported amount can never silently become a spend.
+const budget = table(
+  { name: 'budget', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    amountPaise: t.i64(),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+// Vendor contact details intentionally stay out of this shared table. The
+// shared plan tracks selection and money; any contact channel is handled by a
+// separate, consent-gated worker outside the deterministic module.
+const vendor = table(
+  { name: 'vendor', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    name: t.string(),
+    category: t.string(),
+    bookingState: t.string().default('shortlisted'),
+    note: t.option(t.string()).default(undefined),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+// This records a human's permission for a future external vendor-contact
+// worker. No reducer sends anything; absence of this record means no contact.
+const vendor_consent = table(
+  { name: 'vendor_consent', public: true, indexes: [{ accessor: 'by_vendor', algorithm: 'btree', columns: ['vendorId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    vendorId: t.u64(),
+    weddingId: t.u64(),
+    consented: t.bool(),
+    state: t.string().default('confirmed'),
     source: t.string().default('manual'),
     updatedBy: t.identity(),
     confidence: t.f32().default(1),
@@ -193,6 +247,24 @@ const wedding_agent_setting = table(
     weddingId: t.u64(),
     kind: t.string(),
     instructions: t.string(),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+// User-created assistants are configuration records for the external agent
+// layer. They have no decision or communication authority of their own.
+const custom_wedding_agent = table(
+  { name: 'custom_wedding_agent', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    name: t.string(),
+    instructions: t.string(),
+    enabled: t.bool().default(true),
     state: t.string().default('confirmed'),
     source: t.string().default('manual'),
     updatedBy: t.identity(),
@@ -335,9 +407,13 @@ const spacetimedb = schema({
   wedding,
   event,
   expense,
+  budget,
+  vendor,
+  vendor_consent,
   ingest_source,
   wedding_agent,
   wedding_agent_setting,
+  custom_wedding_agent,
   wedding_message,
   coordinator_request,
 });
@@ -600,14 +676,39 @@ export const setWeddingAgentInstructions = spacetimedb.reducer(
   }
 );
 
+export const createCustomWeddingAgent = spacetimedb.reducer(
+  { weddingId: t.u64(), name: t.string(), instructions: t.string() },
+  (ctx, { weddingId, name, instructions }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add an assistant');
+    const title = name.trim();
+    const brief = instructions.trim();
+    if (!title || title.length > 80) throw new SenderError('assistant name must be between 1 and 80 characters');
+    if (!brief || brief.length > 2000) throw new SenderError('add a working brief of 2000 characters or fewer');
+    ctx.db.custom_wedding_agent.insert({
+      id: 0n,
+      weddingId,
+      name: title,
+      instructions: brief,
+      enabled: true,
+      state: 'confirmed',
+      source: 'manual',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
+  }
+);
+
 export const createEvent = spacetimedb.reducer(
-  { weddingId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()) },
-  (ctx, { weddingId, title, venue, startsAt }) => {
+  { weddingId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()), source: t.string(), confidence: t.f32() },
+  (ctx, { weddingId, title, venue, startsAt, source, confidence }) => {
     if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add an event');
     const eventTitle = title.trim();
     if (!eventTitle || eventTitle.length > 200) throw new SenderError('event name must be between 1 and 200 characters');
     const eventVenue = venue?.trim() || undefined;
     if (eventVenue && eventVenue.length > 300) throw new SenderError('venue must be 300 characters or fewer');
+    if (!['manual', ...INGEST_KINDS].includes(source)) throw new SenderError('invalid event source');
+    if (confidence < 0 || confidence > 1) throw new SenderError('confidence must be between 0 and 1');
     ctx.db.event.insert({
       id: 0n,
       weddingId,
@@ -615,10 +716,106 @@ export const createEvent = spacetimedb.reducer(
       startsAt,
       venue: eventVenue,
       state: 'reported',
-      source: 'manual',
+      source,
       updatedBy: ctx.sender,
-      confidence: 1,
+      confidence,
       updatedAt: ctx.timestamp,
+    });
+  }
+);
+
+export const setBudget = spacetimedb.reducer(
+  { weddingId: t.u64(), amountPaise: t.i64() },
+  (ctx, { weddingId, amountPaise }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can set the budget');
+    if (amountPaise <= 0n) throw new SenderError('budget must be greater than zero');
+    const [existing] = [...ctx.db.budget.by_wedding.filter(weddingId)];
+    if (existing) {
+      ctx.db.budget.id.update({ ...existing, amountPaise, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    } else {
+      ctx.db.budget.insert({ id: 0n, weddingId, amountPaise, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    }
+  }
+);
+
+export const createVendor = spacetimedb.reducer(
+  { weddingId: t.u64(), name: t.string(), category: t.string(), note: t.option(t.string()) },
+  (ctx, { weddingId, name, category, note }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add a vendor');
+    const vendorName = name.trim();
+    const vendorCategory = category.trim();
+    const vendorNote = note?.trim() || undefined;
+    if (!vendorName || vendorName.length > 160 || !vendorCategory || vendorCategory.length > 100) throw new SenderError('enter a vendor name and category');
+    if (vendorNote && vendorNote.length > 1000) throw new SenderError('vendor note must be 1000 characters or fewer');
+    ctx.db.vendor.insert({ id: 0n, weddingId, name: vendorName, category: vendorCategory, bookingState: 'shortlisted', note: vendorNote, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+export const setVendorBookingState = spacetimedb.reducer(
+  { vendorId: t.u64(), bookingState: t.string() },
+  (ctx, { vendorId, bookingState }) => {
+    const existing = ctx.db.vendor.id.find(vendorId);
+    if (!existing) throw new SenderError('vendor not found');
+    if (!canManageWedding(ctx, existing.weddingId)) throw new SenderError('only the couple or event creator can update a vendor');
+    if (!['shortlisted', 'selected', 'booked', 'declined'].includes(bookingState)) throw new SenderError('invalid vendor status');
+    ctx.db.vendor.id.update({ ...existing, bookingState, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+export const setVendorConsent = spacetimedb.reducer(
+  { vendorId: t.u64(), consented: t.bool() },
+  (ctx, { vendorId, consented }) => {
+    const existingVendor = ctx.db.vendor.id.find(vendorId);
+    if (!existingVendor) throw new SenderError('vendor not found');
+    if (!canManageWedding(ctx, existingVendor.weddingId)) throw new SenderError('only the couple or event creator can give vendor contact consent');
+    const [existing] = [...ctx.db.vendor_consent.by_vendor.filter(vendorId)];
+    if (existing) {
+      ctx.db.vendor_consent.id.update({ ...existing, consented, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    } else {
+      ctx.db.vendor_consent.insert({ id: 0n, vendorId, weddingId: existingVendor.weddingId, consented, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    }
+  }
+);
+
+export const createExpense = spacetimedb.reducer(
+  { weddingId: t.u64(), category: t.string(), label: t.string(), amountPaise: t.i64(), paid: t.bool(), vendorId: t.option(t.u64()) },
+  (ctx, { weddingId, category, label, amountPaise, paid, vendorId }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add a budget line');
+    const expenseCategory = category.trim();
+    const expenseLabel = label.trim();
+    if (!expenseCategory || expenseCategory.length > 100 || !expenseLabel || expenseLabel.length > 200 || amountPaise <= 0n) throw new SenderError('enter a category, description, and amount');
+    if (vendorId !== undefined) {
+      const linkedVendor = ctx.db.vendor.id.find(vendorId);
+      if (!linkedVendor || linkedVendor.weddingId !== weddingId) throw new SenderError('choose a vendor from this wedding');
+    }
+    ctx.db.expense.insert({ id: 0n, weddingId, category: expenseCategory, label: expenseLabel, amountPaise, paid, vendorId, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+export const confirmExpense = spacetimedb.reducer(
+  { expenseId: t.u64(), accept: t.bool() },
+  (ctx, { expenseId, accept }) => {
+    const existing = ctx.db.expense.id.find(expenseId);
+    if (!existing) throw new SenderError('budget line not found');
+    if (!canManageWedding(ctx, existing.weddingId)) throw new SenderError('only the couple or event creator can review budget lines');
+    // Rejection does not destroy imported evidence. It remains traceable but
+    // cannot be treated as a confirmed budget fact.
+    ctx.db.expense.id.update({ ...existing, state: accept ? 'confirmed' : 'unknown', updatedBy: ctx.sender, confidence: accept ? 1 : 0, updatedAt: ctx.timestamp });
+  }
+);
+
+// Parsed quote amounts are drafts, just like parsed event details. A person
+// must still review them before an amount can be treated as settled.
+export const createExpense = spacetimedb.reducer(
+  { weddingId: t.u64(), category: t.string(), label: t.string(), amountPaise: t.i64(), source: t.string(), confidence: t.f32() },
+  (ctx, { weddingId, category, label, amountPaise, source, confidence }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add an expense');
+    if (!['manual', ...INGEST_KINDS].includes(source)) throw new SenderError('invalid expense source');
+    if (!label.trim() || label.trim().length > 200 || category.trim().length > 80) throw new SenderError('invalid expense details');
+    if (amountPaise < 0n || confidence < 0 || confidence > 1) throw new SenderError('invalid expense amount or confidence');
+    ctx.db.expense.insert({
+      id: 0n, weddingId, category: category.trim() || 'Other', label: label.trim(), amountPaise, paid: false,
+      state: 'reported', source, updatedBy: ctx.sender, confidence, updatedAt: ctx.timestamp,
     });
   }
 );

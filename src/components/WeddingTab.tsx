@@ -3,6 +3,7 @@ import { Timestamp } from 'spacetimedb';
 import { Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, FileText, Image, MapPin, MessageCircle, Milestone, Plus, Store, Upload, Users, WalletCards, X } from 'lucide-react';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
+import { parseImport, type ParsedImport } from '../lib/ingest';
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -97,7 +98,7 @@ function AddEvent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim()) return;
-    createEvent({ weddingId, title: title.trim(), venue: venue.trim() || undefined, startsAt: startsAt ? Timestamp.fromDate(new Date(startsAt)) : undefined });
+    createEvent({ weddingId, title: title.trim(), venue: venue.trim() || undefined, startsAt: startsAt ? Timestamp.fromDate(new Date(startsAt)) : undefined, source: 'manual', confidence: 1 });
     onDone();
   };
   return <form className="quick-add-form" onSubmit={submit}>
@@ -122,17 +123,64 @@ function ContactImport({ weddingId }: { weddingId: bigint }) {
   return <section className="contact-import panel"><Upload color="#087d6b"/><h2>Import contacts</h2><p>Choose a contacts CSV, spreadsheet, or phone export. The import worker will turn it into reviewable guest records; nobody is invited automatically.</p><label className="file-picker"><input type="file" accept=".csv,.tsv,.xlsx,.xls,text/csv" onChange={event => { setFileName(event.target.files?.[0]?.name ?? ''); setQueued(false); }} /><Upload size={16}/>{fileName || 'Choose a contacts file'}</label>{fileName && <button type="button" className="primary-button" onClick={queue} disabled={queued}>{queued ? 'Import queued for review' : 'Queue contact import'}</button>}</section>;
 }
 
+function AddCustomAgent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void }) {
+  const createCustomWeddingAgent = useReducer(reducers.createCustomWeddingAgent);
+  const [name, setName] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!name.trim() || !instructions.trim()) return;
+    createCustomWeddingAgent({ weddingId, name: name.trim(), instructions: instructions.trim() });
+    onDone();
+  };
+  return <form className="quick-add-form custom-agent-form" onSubmit={submit}>
+    <div className="quick-add-heading"><div><p className="section-label">New assistant</p><h2>Give your wedding team a hand</h2></div><button type="button" onClick={onDone} aria-label="Close new assistant"><X size={18}/></button></div>
+    <label>Assistant name<input value={name} onChange={event => setName(event.target.value)} maxLength={80} placeholder="e.g. Ritual guide" required autoFocus /></label>
+    <label>What should it focus on?<textarea value={instructions} onChange={event => setInstructions(event.target.value)} maxLength={2000} placeholder="For example: Organise ceremony traditions and draft a simple family run-sheet for review." required /></label>
+    <p>It can read the plan, organise information, and prepare drafts. A person still approves all decisions, spending, messages, and vendor contact.</p>
+    <button className="primary-button" type="submit"><Plus size={17}/> Add assistant</button>
+  </form>;
+}
+
+function SourceUpload({ weddingId, source, onClose }: { weddingId: bigint; source: typeof sources[number]; onClose: () => void }) {
+  const requestIngest = useReducer(reducers.requestIngest);
+  const createEvent = useReducer(reducers.createEvent);
+  const createExpense = useReducer(reducers.createExpense);
+  const [file, setFile] = useState<File | null>(null);
+  const [parsed, setParsed] = useState<ParsedImport | null>(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const readFile = async (next: File) => {
+    setFile(next); setError('');
+    try { setParsed(parseImport(source.kind, next, next.type.startsWith('image/') ? '' : await next.text())); }
+    catch { setParsed(null); setError('We could not read that file. Try a text export, CSV, or calendar file.'); }
+  };
+  const save = () => {
+    if (!file || !parsed) return;
+    setSaving(true);
+    requestIngest({ weddingId, kind: source.kind });
+    parsed.events.forEach(event => createEvent({ weddingId, title: event.title, venue: event.venue, startsAt: event.startsAt ? Timestamp.fromDate(event.startsAt) : undefined, source: source.kind, confidence: event.confidence }));
+    parsed.expenses.forEach(expense => createExpense({ weddingId, ...expense, source: source.kind }));
+    onClose();
+  };
+  const accept = source.kind === 'calendar' ? '.ics,text/calendar' : source.kind === 'whatsapp' ? '.txt,text/plain' : source.kind === 'guests' ? '.csv,.tsv,text/csv,text/tab-separated-values' : 'image/*,.txt,.csv,.ics,text/plain,text/csv,text/calendar';
+  return <div className="modal-backdrop" onClick={onClose}><section className="modal-sheet ingest-sheet" role="dialog" aria-modal="true" aria-labelledby="ingest-title" onClick={event => event.stopPropagation()}><div className="sheet-heading"><div><p className="eyebrow">Add a source</p><h2 id="ingest-title">{source.title}</h2></div><button className="close-button" aria-label="Close upload" onClick={onClose}>×</button></div><p>{source.copy} It stays a draft until your family reviews it.</p><label className="file-picker"><input type="file" accept={accept} onChange={event => { const next = event.target.files?.[0]; if (next) void readFile(next); }} /><Upload size={16}/>{file?.name ?? 'Choose a file'}</label>{error && <p className="form-error">{error}</p>}{parsed && <div className="ingest-preview"><b>Ready for review</b><p>{parsed.summary}</p>{parsed.events.length > 0 && <ul>{parsed.events.slice(0, 4).map(event => <li key={event.title}>{event.title}</li>)}</ul>}{parsed.expenses.length > 0 && <ul>{parsed.expenses.slice(0, 4).map(expense => <li key={expense.label}>{expense.label} · {fmt.format(Number(expense.amountPaise) / 100)}</li>)}</ul>}<small>These details will be marked “needs review”.</small></div>}{file && parsed && <button type="button" className="primary-button" disabled={saving} onClick={save}>{saving ? 'Adding drafts…' : 'Add drafts for review'}</button>}</section></div>;
+}
+
 function ConnectWedding({ weddingId }: { weddingId: bigint }) {
   const { identity } = useSpacetimeDB();
   const [members] = useTable(tables.member);
   const [ingestSources] = useTable(tables.ingestSource);
   const [weddingAgents] = useTable(tables.weddingAgent);
   const [agentSettings] = useTable(tables.weddingAgentSetting);
+  const [customAgents] = useTable(tables.customWeddingAgent);
   const requestIngest = useReducer(reducers.requestIngest);
   const setWeddingAgent = useReducer(reducers.setWeddingAgent);
   const setWeddingAgentInstructions = useReducer(reducers.setWeddingAgentInstructions);
   const [editingAgent, setEditingAgent] = useState<string | null>(null);
   const [instructionDraft, setInstructionDraft] = useState('');
+  const [addingCustomAgent, setAddingCustomAgent] = useState(false);
+  const [uploading, setUploading] = useState<typeof sources[number] | null>(null);
   const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === identity?.toHexString());
   const canManage = membership?.role === 'couple' || membership?.role === 'planner';
   const queued = ingestSources.filter(source => source.weddingId === weddingId);
@@ -143,16 +191,17 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
     <div className="source-list">{sources.map(source => {
       const Icon = source.icon;
       const existing = queued.filter(item => item.kind === source.kind);
-      return <article className="source-card" key={source.kind}><span className="source-icon"><Icon size={19}/></span><div><b>{source.title}</b><p>{source.copy}</p>{existing.length > 0 && <small><Check size={13}/> {existing.length} {existing.length === 1 ? 'source' : 'sources'} waiting for upload</small>}</div>{canManage && <button type="button" className="source-add" onClick={() => requestIngest({ weddingId, kind: source.kind })}>{existing.length ? 'Add another' : 'Add source'}</button>}</article>;
+      return <article className="source-card" key={source.kind}><span className="source-icon"><Icon size={19}/></span><div><b>{source.title}</b><p>{source.copy}</p>{existing.length > 0 && <small><Check size={13}/> {existing.length} {existing.length === 1 ? 'source' : 'sources'} added for review</small>}</div>{canManage && <button type="button" className="source-add" onClick={() => setUploading(source)}>{existing.length ? 'Add another' : 'Add source'}</button>}</article>;
     })}</div>
-    <div className="assistant-section"><div className="connect-intro"><p className="section-label">In-app assistants</p><h2>Set up your wedding team</h2><p>These assistants work inside Inai: they organise, draft, and track requests. A person still approves every decision, spend, and external commitment.</p></div><div className="assistant-list">{assistants.map(agent => {
+    {uploading && <SourceUpload weddingId={weddingId} source={uploading} onClose={() => setUploading(null)} />}
+    <div className="assistant-section"><div className="connect-intro assistant-intro"><div><p className="section-label">In-app assistants</p><h2>Set up your wedding team</h2><p>These assistants work inside Inai: they organise, draft, and track requests. A person still approves every decision, spend, and external commitment.</p></div>{canManage && <button type="button" className="outline-action" onClick={() => setAddingCustomAgent(true)}><Plus size={16}/> Add assistant</button>}</div>{addingCustomAgent && <AddCustomAgent weddingId={weddingId} onDone={() => setAddingCustomAgent(false)} />}<div className="assistant-list">{assistants.map(agent => {
       const current = agents.find(item => item.kind === agent.kind);
       const enabled = current?.enabled ?? false;
       const setting = agentSettings.find(item => item.weddingId === weddingId && item.kind === agent.kind);
       const editing = editingAgent === agent.kind;
       const saveInstructions = () => { setWeddingAgentInstructions({ weddingId, kind: agent.kind, instructions: instructionDraft }); setEditingAgent(null); };
       return <article className={`assistant-card ${enabled ? 'enabled' : ''} ${editing ? 'customising' : ''}`} key={agent.kind}><span className="assistant-icon"><Bot size={19}/></span><div><b>{agent.title}</b><p>{agent.copy}</p></div>{canManage && <div className="agent-actions"><button className={enabled ? 'assistant-toggle enabled' : 'assistant-toggle'} type="button" aria-pressed={enabled} onClick={() => setWeddingAgent({ weddingId, kind: agent.kind, enabled: !enabled })}>{enabled ? 'Added' : 'Add'}</button>{enabled && <button className="customise-agent" type="button" onClick={() => { setEditingAgent(editing ? null : agent.kind); setInstructionDraft(setting?.instructions ?? ''); }}>{editing ? 'Close' : 'Customise'}</button>}</div>}{editing && <div className="agent-customisation"><label>What should this assistant focus on?<textarea value={instructionDraft} onChange={event => setInstructionDraft(event.target.value)} maxLength={2000} placeholder="For example: Keep the family focused on the ceremony schedule and flag anything that needs a decision." /></label><p>It can organise and draft from this brief. It cannot make decisions, spend money, or contact anyone without the required approval.</p><button type="button" className="primary-button" onClick={saveInstructions}>Save instructions</button></div>}</article>;
-    })}</div></div>
+    })}{customAgents.filter(agent => agent.weddingId === weddingId).map(agent => <article className={`assistant-card enabled custom-agent-card`} key={String(agent.id)}><span className="assistant-icon"><Bot size={19}/></span><div><b>{agent.name}</b><p>{agent.instructions}</p><small>Custom assistant · drafts only</small></div><span className="assistant-toggle enabled">Added</span></article>)}</div></div>
   </section>;
 }
 
