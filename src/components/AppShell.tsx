@@ -43,6 +43,67 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
       p.connected && weddingMembers.some(member => member.identity.toHexString() === p.identity.toHexString()),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
+  const offline = participants
+    .filter(p =>
+      !p.connected && weddingMembers.some(member => member.identity.toHexString() === p.identity.toHexString()),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const renderMember = (p: typeof participants[number], isOnline: boolean) => {
+    const isMe = p.identity.toHexString() === myHex;
+    const membership = weddingMembers.find(member => member.identity.toHexString() === p.identity.toHexString());
+    return (
+      <div
+        key={p.identity.toHexString()}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          background: '#FFFFFF',
+          border: `1px solid ${colors.hairline}`,
+          borderRadius: 12,
+          padding: '10px 12px',
+        }}
+      >
+        <span
+          aria-label={isOnline ? 'Online' : 'Offline'}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: isOnline ? colors.green : colors.hairline,
+            flex: 'none',
+          }}
+        />
+        <span style={{ flex: 1, fontSize: 14 }}>
+          {p.name}
+          {isMe ? ' (you)' : ''}
+        </span>
+        {iAmAdmin && membership && !isMe ? (
+          <select
+            value={membership.role}
+            onChange={e => setMembershipRole({ weddingId, identity: p.identity, role: e.target.value })}
+            aria-label={`Change ${p.name}'s role`}
+            style={{
+              border: `1px solid ${colors.hairline}`,
+              borderRadius: 8,
+              fontSize: 12,
+              fontFamily: fonts.ui,
+              padding: '4px 6px',
+            }}
+          >
+            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span style={{ fontSize: 12, color: colors.muted }}>{membership && (ROLE_LABELS[membership.role] ?? membership.role)}</span>
+        )}
+      </div>
+    );
+  };
 
   const createInvite = () => {
     if (!inviteRole) return;
@@ -87,62 +148,26 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
           Online now
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-          {online.map(p => {
-            const isMe = p.identity.toHexString() === myHex;
-            const membership = weddingMembers.find(member => member.identity.toHexString() === p.identity.toHexString());
-            return (
-              <div
-                key={p.identity.toHexString()}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  background: '#FFFFFF',
-                  border: `1px solid ${colors.hairline}`,
-                  borderRadius: 12,
-                  padding: '10px 12px',
-                }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: colors.green,
-                    flex: 'none',
-                  }}
-                />
-                <span style={{ flex: 1, fontSize: 14 }}>
-                  {p.name}
-                  {isMe ? ' (you)' : ''}
-                </span>
-                {iAmAdmin && membership && !isMe ? (
-                  <select
-                    value={membership?.role ?? 'guest'}
-                    onChange={e =>
-                      setMembershipRole({ weddingId, identity: p.identity, role: e.target.value })
-                    }
-                    style={{
-                      border: `1px solid ${colors.hairline}`,
-                      borderRadius: 8,
-                      fontSize: 12,
-                      fontFamily: fonts.ui,
-                      padding: '4px 6px',
-                    }}
-                  >
-                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span style={{ fontSize: 12, color: colors.muted }}>{membership && (ROLE_LABELS[membership.role] ?? membership.role)}</span>
-                )}
-              </div>
-            );
-          })}
+          {online.length > 0 ? online.map(p => renderMember(p, true)) : <span style={{ color: colors.muted, fontSize: 13 }}>No one is online right now.</span>}
         </div>
+
+        {offline.length > 0 && <>
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: colors.muted,
+              letterSpacing: '.05em',
+              textTransform: 'uppercase',
+              margin: '0 0 10px',
+            }}
+          >
+            Everyone else
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            {offline.map(p => renderMember(p, false))}
+          </div>
+        </>}
 
         {iAmAdmin && <section style={{ marginBottom: 20, padding: 14, border: `1px solid ${colors.hairline}`, borderRadius: 14, background: '#FFFFFF' }}>
           <b style={{ display: 'block', fontSize: 15, marginBottom: 5 }}>Invite someone</b>
