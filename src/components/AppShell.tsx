@@ -296,7 +296,7 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
 
       <main className="inai-page">
         {tab === 'today' && <TodayTab weddingId={weddingId} onNavigate={t => setTab(t === 'tasks' ? 'wedding' : t)} onOpenChat={() => setChatOpen(true)} />}
-        {tab === 'decide' && <DecisionBoard weddingId={weddingId} />}
+        {tab === 'decide' && <div className="decision-chat-layout"><DecisionBoard weddingId={weddingId} /><GroupChat weddingId={weddingId} embedded /></div>}
         {tab === 'wedding' && <WeddingTab weddingId={weddingId} />}
       </main>
 

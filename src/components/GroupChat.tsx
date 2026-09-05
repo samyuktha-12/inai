@@ -11,7 +11,7 @@ function initials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 }
 
-export default function GroupChat({ weddingId, onClose }: { weddingId: bigint; onClose: () => void }) {
+export default function GroupChat({ weddingId, onClose, embedded = false }: { weddingId: bigint; onClose?: () => void; embedded?: boolean }) {
   const { identity } = useSpacetimeDB();
   const [messages] = useTable(tables.weddingMessage);
   const [participants] = useTable(tables.participant);
@@ -32,12 +32,11 @@ export default function GroupChat({ weddingId, onClose }: { weddingId: bigint; o
     setDraft('');
   };
 
-  return <div className="chat-backdrop" onClick={onClose}>
-    <section className="group-chat" role="dialog" aria-modal="true" aria-labelledby="group-chat-title" onClick={event => event.stopPropagation()}>
+  const panel = <section className={`group-chat ${embedded ? 'group-chat--embedded' : ''}`} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : true} aria-labelledby="group-chat-title" onClick={event => event.stopPropagation()}>
       <header className="group-chat-header">
         <span className="group-chat-mark"><MessageCircle size={20} /></span>
         <div><h2 id="group-chat-title">Wedding group</h2><p><Users size={13} /> {memberCount} {memberCount === 1 ? 'member' : 'members'}</p></div>
-        <button type="button" onClick={onClose} className="group-chat-close" aria-label="Close wedding chat"><X size={19} /></button>
+        {!embedded && <button type="button" onClick={onClose} className="group-chat-close" aria-label="Close wedding chat"><X size={19} /></button>}
       </header>
       <div className="group-chat-notice"><Bot size={16} /><span>Your coordinator can read the conversation to prepare drafts. People still confirm every change.</span></div>
       <div className="group-chat-messages" aria-live="polite">
@@ -56,6 +55,7 @@ export default function GroupChat({ weddingId, onClose }: { weddingId: bigint; o
         <input value={draft} onChange={event => setDraft(event.target.value)} maxLength={2000} placeholder="Message the wedding group" aria-label="Message the wedding group" autoFocus />
         <button type="submit" disabled={!draft.trim()} aria-label="Send message"><Send size={18} /></button>
       </form>
-    </section>
-  </div>;
+    </section>;
+
+  return embedded ? panel : <div className="chat-backdrop" onClick={onClose}>{panel}</div>;
 }
