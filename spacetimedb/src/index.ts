@@ -30,9 +30,126 @@ const participant = table(
     connected: t.bool(),
     role: t.string().default('guest'),
     side: t.option(t.string()).default(undefined),
+    dateOfBirth: t.option(t.string()).default(undefined),
+    mealPreference: t.option(t.string()).default(undefined),
+    profileState: t.string().default('unknown'),
+    profileSource: t.string().default('manual'),
+    profileUpdatedAt: t.option(t.timestamp()).default(undefined),
     // E.164 phone number, used to resolve a voice caller who has no app
     // identity of their own (e.g. a parent) to their participant row.
     phone: t.option(t.string()).default(undefined),
+  }
+);
+
+// A person has one global identity and profile, but can take a different role
+// and side in every wedding they belong to.
+const member = table(
+  {
+    name: 'member',
+    public: true,
+    indexes: [
+      { accessor: 'by_wedding_identity', algorithm: 'btree', columns: ['weddingId', 'identity'] },
+      { accessor: 'by_identity', algorithm: 'btree', columns: ['identity'] },
+    ],
+  },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    identity: t.identity(),
+    role: t.string(),
+    side: t.option(t.string()).default(undefined),
+    joinedAt: t.timestamp(),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+// Bearer invite tokens are deliberately private: recipients redeem a token
+// through a reducer, while only the module can look up the pending invite.
+const wedding_invitation = table(
+  { name: 'wedding_invitation', indexes: [{ accessor: 'by_code', algorithm: 'btree', columns: ['code'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    code: t.string(),
+    role: t.string(),
+    side: t.option(t.string()).default(undefined),
+    status: t.string(),
+    createdBy: t.identity(),
+    createdAt: t.timestamp(),
+    acceptedBy: t.option(t.identity()).default(undefined),
+    acceptedAt: t.option(t.timestamp()).default(undefined),
+  }
+);
+
+// Phase 0's shared wedding surface.  The agent layer may propose values for
+// these records, but it must use the reported-state reducers below; a reducer
+// never reaches out to Pinterest, WhatsApp, maps, or telephony itself.
+const wedding = table(
+  { name: 'wedding', public: true },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    createdBy: t.identity(),
+    primaryName: t.string(),
+    partnerName: t.string(),
+    city: t.string(),
+    dateLabel: t.string(),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+const event = table(
+  { name: 'event', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    title: t.string(),
+    startsAt: t.option(t.timestamp()).default(undefined),
+    venue: t.option(t.string()).default(undefined),
+    state: t.string().default('reported'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+const expense = table(
+  { name: 'expense', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    category: t.string(),
+    label: t.string(),
+    amountPaise: t.i64(),
+    paid: t.bool(),
+    state: t.string().default('reported'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+// Metadata only. Raw exports/files remain in the external ingest worker and
+// are deliberately not replicated to every wedding participant.
+const ingest_source = table(
+  { name: 'ingest_source', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    kind: t.string(),
+    status: t.string(),
+    itemCount: t.u32(),
+    submittedBy: t.identity(),
+    createdAt: t.timestamp(),
   }
 );
 
@@ -40,6 +157,7 @@ const decision = table(
   { name: 'decision', public: true },
   {
     id: t.u64().primaryKey().autoInc(),
+    weddingId: t.option(t.u64()).default(undefined),
     title: t.string(),
     createdBy: t.identity(),
     createdAt: t.timestamp(),
@@ -85,6 +203,7 @@ const task = table(
   { name: 'task', public: true },
   {
     id: t.u64().primaryKey().autoInc(),
+    weddingId: t.option(t.u64()).default(undefined),
     title: t.string(),
     ownerIdentity: t.identity(),
     done: t.bool(),
@@ -114,6 +233,12 @@ const webhook_secret = table(
 
 const spacetimedb = schema({
   participant,
+  member,
+  wedding_invitation,
+  wedding,
+  event,
+  expense,
+  ingest_source,
   decision,
   decision_option,
   vote,
@@ -124,9 +249,10 @@ export default spacetimedb;
 
 type Ctx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 
-function seedDecision(ctx: Ctx, title: string, options: string[]) {
+function seedDecision(ctx: Ctx, weddingId: bigint, title: string, options: string[]) {
   const inserted = ctx.db.decision.insert({
     id: 0n,
+    weddingId,
     title,
     createdBy: ctx.sender,
     createdAt: ctx.timestamp,
@@ -138,18 +264,7 @@ function seedDecision(ctx: Ctx, title: string, options: string[]) {
   }
 }
 
-export const init = spacetimedb.init(ctx => {
-  seedDecision(ctx, 'Vote on the venue', [
-    'Garden Estate',
-    'Beachfront Resort',
-    'Temple Hall',
-  ]);
-  seedDecision(ctx, 'Which mandap?', [
-    'Floral arch',
-    'Draped cloth',
-    'Temple style',
-  ]);
-});
+export const init = spacetimedb.init(() => {});
 
 function roleForNewParticipant(ctx: Ctx): Role {
   const [first] = [...ctx.db.participant.iter()];
@@ -167,6 +282,11 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
       connected: true,
       role: roleForNewParticipant(ctx),
       side: undefined,
+      dateOfBirth: undefined,
+      mealPreference: undefined,
+      profileState: 'unknown',
+      profileSource: 'manual',
+      profileUpdatedAt: undefined,
       phone: undefined,
     });
   }
@@ -192,9 +312,70 @@ export const setName = spacetimedb.reducer(
         connected: true,
         role: roleForNewParticipant(ctx),
         side: undefined,
+        dateOfBirth: undefined,
+        mealPreference: undefined,
+        profileState: 'unknown',
+        profileSource: 'manual',
+        profileUpdatedAt: undefined,
         phone: undefined,
       });
     }
+  }
+);
+
+/**
+ * Creates the deliberately small first confirmed record.  Imported material
+ * is represented separately as reported records by an authenticated worker.
+ */
+export const createWedding = spacetimedb.reducer(
+  {
+    primaryName: t.string(),
+    partnerName: t.string(),
+    city: t.string(),
+    dateLabel: t.string(),
+    sourceKinds: t.array(t.string()),
+  },
+  (ctx, { sourceKinds, ...values }) => {
+    const caller = ctx.db.participant.identity.find(ctx.sender);
+    if (!caller) throw new SenderError('sign in before creating a wedding');
+    const created = ctx.db.wedding.insert({
+      id: 0n,
+      ...values,
+      createdBy: ctx.sender,
+      state: 'confirmed',
+      source: 'manual',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
+    for (const kind of sourceKinds) {
+      if (!['pinterest', 'whatsapp', 'guests', 'quotes'].includes(kind)) {
+        throw new SenderError('invalid ingest source');
+      }
+      ctx.db.ingest_source.insert({
+        id: 0n,
+        weddingId: created.id,
+        kind,
+        status: 'awaiting_upload',
+        itemCount: 0,
+        submittedBy: ctx.sender,
+        createdAt: ctx.timestamp,
+      });
+    }
+    ctx.db.member.insert({
+      id: 0n,
+      weddingId: created.id,
+      identity: ctx.sender,
+      role: 'couple',
+      side: undefined,
+      joinedAt: ctx.timestamp,
+      state: 'confirmed',
+      source: 'manual',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
+    seedDecision(ctx, created.id, 'Which mandap feels right?', ['Floral arch', 'Draped cloth', 'Temple style']);
   }
 );
 
@@ -214,6 +395,16 @@ function isAdmin(role: string): boolean {
   return role === 'couple' || role === 'planner';
 }
 
+function membershipFor(ctx: Ctx, weddingId: bigint, identity = ctx.sender) {
+  const [membership] = [...ctx.db.member.by_wedding_identity.filter([weddingId, identity])];
+  return membership;
+}
+
+function canManageWedding(ctx: Ctx, weddingId: bigint): boolean {
+  const membership = membershipFor(ctx, weddingId);
+  return !!membership && isAdmin(membership.role);
+}
+
 export const setRole = spacetimedb.reducer(
   { identity: t.identity(), role: t.string() },
   (ctx, { identity, role }) => {
@@ -231,21 +422,88 @@ export const setRole = spacetimedb.reducer(
 );
 
 export const createDecision = spacetimedb.reducer(
-  { title: t.string(), options: t.array(t.string()) },
-  (ctx, { title, options }) => {
-    seedDecision(ctx, title, options);
+  { weddingId: t.u64(), title: t.string(), options: t.array(t.string()) },
+  (ctx, { weddingId, title, options }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can create a decision');
+    seedDecision(ctx, weddingId, title, options);
+  }
+);
+
+export const addMember = spacetimedb.reducer(
+  { weddingId: t.u64(), identity: t.identity(), role: t.string(), side: t.option(t.string()) },
+  (ctx, { weddingId, identity, role, side }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can add people');
+    if (!ROLES.includes(role as Role)) throw new SenderError('invalid role');
+    if (side !== undefined && !SIDES.includes(side as Side)) throw new SenderError('invalid side');
+    if (membershipFor(ctx, weddingId, identity)) throw new SenderError('this person is already in the wedding');
+    if (!ctx.db.participant.identity.find(identity)) throw new SenderError('ask this person to sign in first');
+    ctx.db.member.insert({ id: 0n, weddingId, identity, role, side, joinedAt: ctx.timestamp, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+export const createWeddingInvitation = spacetimedb.reducer(
+  { weddingId: t.u64(), code: t.string(), role: t.string(), side: t.option(t.string()) },
+  (ctx, { weddingId, code, role, side }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can invite people');
+    if (!ROLES.includes(role as Role)) throw new SenderError('invalid role');
+    if (side !== undefined && !SIDES.includes(side as Side)) throw new SenderError('invalid side');
+    if (code.length < 16 || code.length > 160) throw new SenderError('invalid invitation code');
+    if ([...ctx.db.wedding_invitation.by_code.filter(code)].length > 0) throw new SenderError('try creating this invite again');
+    ctx.db.wedding_invitation.insert({ id: 0n, weddingId, code, role, side, status: 'pending', createdBy: ctx.sender, createdAt: ctx.timestamp, acceptedBy: undefined, acceptedAt: undefined });
+  }
+);
+
+export const acceptWeddingInvitation = spacetimedb.reducer(
+  { code: t.string() },
+  (ctx, { code }) => {
+    const person = ctx.db.participant.identity.find(ctx.sender);
+    if (!person) throw new SenderError('sign in before joining a wedding');
+    const [invite] = [...ctx.db.wedding_invitation.by_code.filter(code)];
+    if (!invite || invite.status !== 'pending') throw new SenderError('this invite is no longer available');
+    if (membershipFor(ctx, invite.weddingId)) throw new SenderError('you are already part of this wedding');
+    ctx.db.member.insert({ id: 0n, weddingId: invite.weddingId, identity: ctx.sender, role: invite.role, side: invite.side, joinedAt: ctx.timestamp, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    ctx.db.wedding_invitation.id.update({ ...invite, status: 'accepted', acceptedBy: ctx.sender, acceptedAt: ctx.timestamp });
+  }
+);
+
+export const updateMyProfile = spacetimedb.reducer(
+  { name: t.string(), dateOfBirth: t.option(t.string()), mealPreference: t.option(t.string()) },
+  (ctx, { name, dateOfBirth, mealPreference }) => {
+    const person = ctx.db.participant.identity.find(ctx.sender);
+    if (!person) throw new SenderError('sign in before updating your profile');
+    ctx.db.participant.identity.update({ ...person, name, dateOfBirth, mealPreference, profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
+  }
+);
+
+export const setMembershipRole = spacetimedb.reducer(
+  { weddingId: t.u64(), identity: t.identity(), role: t.string() },
+  (ctx, { weddingId, identity, role }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can change roles');
+    if (!ROLES.includes(role as Role)) throw new SenderError('invalid role');
+    const membership = membershipFor(ctx, weddingId, identity);
+    if (!membership) throw new SenderError('member not found');
+    ctx.db.member.id.update({ ...membership, role, updatedBy: ctx.sender, updatedAt: ctx.timestamp });
+  }
+);
+
+export const setMembershipSide = spacetimedb.reducer(
+  { weddingId: t.u64(), identity: t.identity(), side: t.option(t.string()) },
+  (ctx, { weddingId, identity, side }) => {
+    if (!canManageWedding(ctx, weddingId) && !identity.equals(ctx.sender)) throw new SenderError('you can only update your own side');
+    if (side !== undefined && !SIDES.includes(side as Side)) throw new SenderError('invalid side');
+    const membership = membershipFor(ctx, weddingId, identity);
+    if (!membership) throw new SenderError('member not found');
+    ctx.db.member.id.update({ ...membership, side, updatedBy: ctx.sender, updatedAt: ctx.timestamp });
   }
 );
 
 export const setDecider = spacetimedb.reducer(
   { decisionId: t.u64(), identity: t.identity() },
   (ctx, { decisionId, identity }) => {
-    const caller = ctx.db.participant.identity.find(ctx.sender);
-    if (!caller || !isAdmin(caller.role)) {
-      throw new SenderError('only the couple or planner can set a decider');
-    }
     const decision = ctx.db.decision.id.find(decisionId);
     if (!decision) throw new SenderError('decision not found');
+    if (decision.weddingId === undefined || !canManageWedding(ctx, decision.weddingId)) throw new SenderError('only the couple or planner can set a decider');
+    if (!membershipFor(ctx, decision.weddingId, identity)) throw new SenderError('decider must be a wedding member');
     ctx.db.decision.id.update({ ...decision, deciderIdentity: identity });
   }
 );
@@ -255,10 +513,11 @@ export const lockDecision = spacetimedb.reducer(
   (ctx, { decisionId, optionId }) => {
     const decision = ctx.db.decision.id.find(decisionId);
     if (!decision) throw new SenderError('decision not found');
-    const caller = ctx.db.participant.identity.find(ctx.sender);
+    if (decision.weddingId === undefined || !membershipFor(ctx, decision.weddingId)) throw new SenderError('you are not part of this wedding');
+    const caller = decision.weddingId === undefined ? undefined : membershipFor(ctx, decision.weddingId);
     const isDecider =
       decision.deciderIdentity && decision.deciderIdentity.equals(ctx.sender);
-    if (!isDecider && caller?.role !== 'couple') {
+    if (!isDecider && !isAdmin(caller?.role ?? '')) {
       throw new SenderError('only the decider or the couple can lock this decision');
     }
     const option = ctx.db.decision_option.id.find(optionId);
@@ -273,6 +532,7 @@ export const castVote = spacetimedb.reducer(
   { decisionId: t.u64(), optionId: t.u64() },
   (ctx, { decisionId, optionId }) => {
     const decision = ctx.db.decision.id.find(decisionId);
+    if (!decision || decision.weddingId === undefined || !membershipFor(ctx, decision.weddingId)) throw new SenderError('you are not part of this wedding');
     if (decision?.lockedOptionId !== undefined && decision?.lockedOptionId !== null) {
       throw new SenderError('decision is locked');
     }
@@ -295,13 +555,17 @@ export const castVote = spacetimedb.reducer(
 
 export const createTask = spacetimedb.reducer(
   {
+    weddingId: t.u64(),
     title: t.string(),
     ownerIdentity: t.identity(),
     dueAt: t.option(t.timestamp()),
   },
-  (ctx, { title, ownerIdentity, dueAt }) => {
+  (ctx, { weddingId, title, ownerIdentity, dueAt }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can create tasks');
+    if (!membershipFor(ctx, weddingId, ownerIdentity)) throw new SenderError('task owner must be a wedding member');
     ctx.db.task.insert({
       id: 0n,
+      weddingId,
       title,
       ownerIdentity,
       done: false,

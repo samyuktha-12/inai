@@ -16,5 +16,10 @@ export default __t.row({
   connected: __t.bool(),
   role: __t.string(),
   side: __t.option(__t.string()),
+  dateOfBirth: __t.option(__t.string()).name("date_of_birth"),
+  mealPreference: __t.option(__t.string()).name("meal_preference"),
+  profileState: __t.string().name("profile_state"),
+  profileSource: __t.string().name("profile_source"),
+  profileUpdatedAt: __t.option(__t.timestamp()).name("profile_updated_at"),
   phone: __t.option(__t.string()),
 });

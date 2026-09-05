@@ -12,7 +12,7 @@ import {
 
 export default {
   weddingId: __t.u64(),
-  title: __t.string(),
-  ownerIdentity: __t.identity(),
-  dueAt: __t.option(__t.timestamp()),
+  identity: __t.identity(),
+  role: __t.string(),
+  side: __t.option(__t.string()),
 };

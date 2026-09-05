@@ -11,8 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  weddingId: __t.u64(),
-  title: __t.string(),
-  ownerIdentity: __t.identity(),
-  dueAt: __t.option(__t.timestamp()),
+  name: __t.string(),
+  dateOfBirth: __t.option(__t.string()),
+  mealPreference: __t.option(__t.string()),
 };

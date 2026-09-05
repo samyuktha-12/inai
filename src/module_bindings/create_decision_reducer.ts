@@ -11,6 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
+  weddingId: __t.u64(),
   title: __t.string(),
   options: __t.array(__t.string()),
 };

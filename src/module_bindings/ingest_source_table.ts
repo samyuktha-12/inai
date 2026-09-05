@@ -12,15 +12,10 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
-  weddingId: __t.option(__t.u64()).name("wedding_id"),
-  title: __t.string(),
-  ownerIdentity: __t.identity().name("owner_identity"),
-  done: __t.bool(),
+  weddingId: __t.u64().name("wedding_id"),
+  kind: __t.string(),
+  status: __t.string(),
+  itemCount: __t.u32().name("item_count"),
+  submittedBy: __t.identity().name("submitted_by"),
   createdAt: __t.timestamp().name("created_at"),
-  dueAt: __t.option(__t.timestamp()).name("due_at"),
-  state: __t.string(),
-  source: __t.string(),
-  reportedBy: __t.option(__t.identity()).name("reported_by"),
-  confidence: __t.option(__t.f32()),
-  reportedAt: __t.option(__t.timestamp()).name("reported_at"),
 });

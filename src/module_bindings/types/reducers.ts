@@ -6,29 +6,43 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AcceptWeddingInvitationReducer from "../accept_wedding_invitation_reducer";
+import AddMemberReducer from "../add_member_reducer";
 import CastVoteReducer from "../cast_vote_reducer";
 import ConfirmReportedTaskReducer from "../confirm_reported_task_reducer";
 import CreateDecisionReducer from "../create_decision_reducer";
 import CreateTaskReducer from "../create_task_reducer";
+import CreateWeddingReducer from "../create_wedding_reducer";
+import CreateWeddingInvitationReducer from "../create_wedding_invitation_reducer";
 import LinkPhoneReducer from "../link_phone_reducer";
 import LockDecisionReducer from "../lock_decision_reducer";
 import SetDeciderReducer from "../set_decider_reducer";
+import SetMembershipRoleReducer from "../set_membership_role_reducer";
+import SetMembershipSideReducer from "../set_membership_side_reducer";
 import SetNameReducer from "../set_name_reducer";
 import SetRoleReducer from "../set_role_reducer";
 import SetSideReducer from "../set_side_reducer";
 import SetWebhookSecretReducer from "../set_webhook_secret_reducer";
 import ToggleTaskReducer from "../toggle_task_reducer";
+import UpdateMyProfileReducer from "../update_my_profile_reducer";
 
+export type AcceptWeddingInvitationParams = __Infer<typeof AcceptWeddingInvitationReducer>;
+export type AddMemberParams = __Infer<typeof AddMemberReducer>;
 export type CastVoteParams = __Infer<typeof CastVoteReducer>;
 export type ConfirmReportedTaskParams = __Infer<typeof ConfirmReportedTaskReducer>;
 export type CreateDecisionParams = __Infer<typeof CreateDecisionReducer>;
 export type CreateTaskParams = __Infer<typeof CreateTaskReducer>;
+export type CreateWeddingParams = __Infer<typeof CreateWeddingReducer>;
+export type CreateWeddingInvitationParams = __Infer<typeof CreateWeddingInvitationReducer>;
 export type LinkPhoneParams = __Infer<typeof LinkPhoneReducer>;
 export type LockDecisionParams = __Infer<typeof LockDecisionReducer>;
 export type SetDeciderParams = __Infer<typeof SetDeciderReducer>;
+export type SetMembershipRoleParams = __Infer<typeof SetMembershipRoleReducer>;
+export type SetMembershipSideParams = __Infer<typeof SetMembershipSideReducer>;
 export type SetNameParams = __Infer<typeof SetNameReducer>;
 export type SetRoleParams = __Infer<typeof SetRoleReducer>;
 export type SetSideParams = __Infer<typeof SetSideReducer>;
 export type SetWebhookSecretParams = __Infer<typeof SetWebhookSecretReducer>;
 export type ToggleTaskParams = __Infer<typeof ToggleTaskReducer>;
+export type UpdateMyProfileParams = __Infer<typeof UpdateMyProfileReducer>;
 

@@ -10,7 +10,7 @@ function formatDue(dueAt?: Timestamp) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function TaskBoard() {
+export default function TaskBoard({ weddingId }: { weddingId: bigint }) {
   const { identity } = useSpacetimeDB();
   const [tasks] = useTable(tables.task);
   const [participants] = useTable(tables.participant);
@@ -36,6 +36,7 @@ export default function TaskBoard() {
     const owner = participants.find(p => p.identity.toHexString() === ownerHex);
     if (!title.trim() || !owner) return;
     createTask({
+      weddingId,
       title: title.trim(),
       ownerIdentity: owner.identity,
       dueAt: dueDate

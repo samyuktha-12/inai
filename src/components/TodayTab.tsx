@@ -2,6 +2,7 @@ import { Timestamp } from 'spacetimedb';
 import { tables, reducers } from '../module_bindings';
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
 import { colors, fonts } from '../theme';
+import { CheckCircle2, Mic } from 'lucide-react';
 
 function formatDue(dueAt?: Timestamp) {
   if (!dueAt) return null;
@@ -21,8 +22,10 @@ const cardStyle: React.CSSProperties = {
 
 export default function TodayTab({
   onNavigate,
+  weddingId,
 }: {
   onNavigate: (tab: 'decide' | 'tasks') => void;
+  weddingId: bigint;
 }) {
   const { identity } = useSpacetimeDB();
   const [tasks] = useTable(tables.task);
@@ -35,10 +38,10 @@ export default function TodayTab({
   const me = participants.find(p => p.identity.toHexString() === myHex);
 
   const myOpenTasks = tasks.filter(
-    t => t.ownerIdentity.toHexString() === myHex && !t.done
+    t => t.weddingId === weddingId && t.ownerIdentity.toHexString() === myHex && !t.done
   );
 
-  const openDecisions = decisions.filter(d => d.lockedOptionId === undefined);
+  const openDecisions = decisions.filter(d => d.weddingId === weddingId && d.lockedOptionId === undefined);
   const myVotedIds = new Set(
     votes
       .filter(v => v.voterIdentity.toHexString() === myHex)
@@ -53,28 +56,30 @@ export default function TodayTab({
 
   return (
     <div>
-      <p style={{ fontSize: 14, color: colors.muted, margin: '0 0 4px' }}>
-        Good to see you, {me?.name ?? 'there'}
-      </p>
-      <h2
-        style={{
-          fontFamily: fonts.serif,
-          fontWeight: 400,
-          fontSize: 26,
-          color: colors.ink2,
-          margin: '0 0 20px',
-        }}
-      >
+      <p className="eyebrow">Good to see you, {me?.name ?? 'there'}</p>
+      <h1 className="headline">
         {totalCount === 0
           ? 'All caught up'
           : `${totalCount} thing${totalCount === 1 ? '' : 's'} need${
               totalCount === 1 ? 's' : ''
-            } you`}
-      </h2>
+            } `}<em>{totalCount === 0 ? '' : 'you'}</em>
+      </h1>
+
+      <div className="today-summary" aria-label={`${totalCount} items need your attention`}>
+        <p>
+          <b style={{ display: 'block', color: '#162B2A', fontSize: 16, marginBottom: 3 }}>Your wedding, in one view</b>
+          {totalCount ? 'Start with the one thing you can move forward today.' : 'You have a clear day. Inai will let you know when something changes.'}
+        </p>
+        <div className="today-count"><span>{totalCount || <CheckCircle2 size={26} />}</span></div>
+      </div>
+
+      <button type="button" className="voice-card" onClick={() => alert('Voice updates will be available when the voice worker is connected.')}>
+        <span className="voice-ring"><Mic size={27}/></span><strong>Ask or update by voice</strong><span>Speak in Tamil, Hindi or English</span>
+      </button>
 
       {needsMyLock.length > 0 && (
         <section style={{ marginBottom: 24 }}>
-          <p style={{ ...sectionLabel }}>You decide</p>
+          <p className="section-label">You decide</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {needsMyLock.map(d => (
               <button
@@ -113,7 +118,7 @@ export default function TodayTab({
 
       {needsMyVote.length > 0 && (
         <section style={{ marginBottom: 24 }}>
-          <p style={{ ...sectionLabel }}>Needs your vote</p>
+          <p className="section-label">Needs your vote</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {needsMyVote.map(d => (
               <button
@@ -151,7 +156,7 @@ export default function TodayTab({
       )}
 
       <section style={{ marginBottom: 24 }}>
-        <p style={{ ...sectionLabel }}>Your turn</p>
+        <p className="section-label">Your turn</p>
         {myOpenTasks.length === 0 ? (
           <p style={{ fontSize: 14, color: colors.muted }}>
             No open tasks assigned to you.
@@ -200,12 +205,3 @@ export default function TodayTab({
     </div>
   );
 }
-
-const sectionLabel: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: colors.muted,
-  letterSpacing: '.05em',
-  textTransform: 'uppercase',
-  margin: '0 0 10px',
-};

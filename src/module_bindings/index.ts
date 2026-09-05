@@ -34,27 +34,39 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AcceptWeddingInvitationReducer from "./accept_wedding_invitation_reducer";
+import AddMemberReducer from "./add_member_reducer";
 import CastVoteReducer from "./cast_vote_reducer";
 import ConfirmReportedTaskReducer from "./confirm_reported_task_reducer";
 import CreateDecisionReducer from "./create_decision_reducer";
 import CreateTaskReducer from "./create_task_reducer";
+import CreateWeddingReducer from "./create_wedding_reducer";
+import CreateWeddingInvitationReducer from "./create_wedding_invitation_reducer";
 import LinkPhoneReducer from "./link_phone_reducer";
 import LockDecisionReducer from "./lock_decision_reducer";
 import SetDeciderReducer from "./set_decider_reducer";
+import SetMembershipRoleReducer from "./set_membership_role_reducer";
+import SetMembershipSideReducer from "./set_membership_side_reducer";
 import SetNameReducer from "./set_name_reducer";
 import SetRoleReducer from "./set_role_reducer";
 import SetSideReducer from "./set_side_reducer";
 import SetWebhookSecretReducer from "./set_webhook_secret_reducer";
 import ToggleTaskReducer from "./toggle_task_reducer";
+import UpdateMyProfileReducer from "./update_my_profile_reducer";
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
 import DecisionRow from "./decision_table";
 import DecisionOptionRow from "./decision_option_table";
+import EventRow from "./event_table";
+import ExpenseRow from "./expense_table";
+import IngestSourceRow from "./ingest_source_table";
+import MemberRow from "./member_table";
 import ParticipantRow from "./participant_table";
 import TaskRow from "./task_table";
 import VoteRow from "./vote_table";
+import WeddingRow from "./wedding_table";
 
 /** Type-only namespace exports for generated type groups. */
 
@@ -82,6 +94,66 @@ const tablesSchema = __schema({
       { name: 'decision_option_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, DecisionOptionRow),
+  event: __table({
+    name: 'event',
+    indexes: [
+      { accessor: 'id', name: 'event_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'event_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'event_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, EventRow),
+  expense: __table({
+    name: 'expense',
+    indexes: [
+      { accessor: 'id', name: 'expense_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'expense_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'expense_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, ExpenseRow),
+  ingestSource: __table({
+    name: 'ingest_source',
+    indexes: [
+      { accessor: 'id', name: 'ingest_source_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'ingest_source_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'ingest_source_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, IngestSourceRow),
+  member: __table({
+    name: 'member',
+    indexes: [
+      { accessor: 'id', name: 'member_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_identity', name: 'member_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'by_wedding_identity', name: 'member_wedding_id_identity_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'member_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MemberRow),
   participant: __table({
     name: 'participant',
     indexes: [
@@ -122,22 +194,40 @@ const tablesSchema = __schema({
       { name: 'vote_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, VoteRow),
+  wedding: __table({
+    name: 'wedding',
+    indexes: [
+      { accessor: 'id', name: 'wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'wedding_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, WeddingRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("accept_wedding_invitation", AcceptWeddingInvitationReducer),
+  __reducerSchema("add_member", AddMemberReducer),
   __reducerSchema("cast_vote", CastVoteReducer),
   __reducerSchema("confirm_reported_task", ConfirmReportedTaskReducer),
   __reducerSchema("create_decision", CreateDecisionReducer),
   __reducerSchema("create_task", CreateTaskReducer),
+  __reducerSchema("create_wedding", CreateWeddingReducer),
+  __reducerSchema("create_wedding_invitation", CreateWeddingInvitationReducer),
   __reducerSchema("link_phone", LinkPhoneReducer),
   __reducerSchema("lock_decision", LockDecisionReducer),
   __reducerSchema("set_decider", SetDeciderReducer),
+  __reducerSchema("set_membership_role", SetMembershipRoleReducer),
+  __reducerSchema("set_membership_side", SetMembershipSideReducer),
   __reducerSchema("set_name", SetNameReducer),
   __reducerSchema("set_role", SetRoleReducer),
   __reducerSchema("set_side", SetSideReducer),
   __reducerSchema("set_webhook_secret", SetWebhookSecretReducer),
   __reducerSchema("toggle_task", ToggleTaskReducer),
+  __reducerSchema("update_my_profile", UpdateMyProfileReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
@@ -148,6 +238,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
   tables: typeof tablesSchema.schemaType.tables & {
     /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
     readonly "decision_option": Omit<typeof tablesSchema.schemaType.tables["decisionOption"], "accessorName"> & { readonly accessorName: "decision_option" };
+    /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
+    readonly "ingest_source": Omit<typeof tablesSchema.schemaType.tables["ingestSource"], "accessorName"> & { readonly accessorName: "ingest_source" };
   };
 };
 
@@ -167,6 +259,7 @@ const REMOTE_MODULE = {
 
 const tableAccessorAliases = {
   "decision_option": "decisionOption",
+  "ingest_source": "ingestSource",
 } as const;
 
 function __withTableAccessorAliases<T extends object>(target: T, freeze = false): T {
@@ -189,12 +282,16 @@ type __DbViewBase = __DbConnectionImpl<typeof REMOTE_MODULE>["db"];
 export type DbView = __DbViewBase & {
   /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
   readonly "decision_option": __DbViewBase["decisionOption"];
+  /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
+  readonly "ingest_source": __DbViewBase["ingestSource"];
 };
 
 type __TablesBase = __QueryBuilder<typeof tablesSchema.schemaType>;
 export type Tables = __TablesBase & {
   /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
   readonly "decision_option": __TablesBase["decisionOption"];
+  /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
+  readonly "ingest_source": __TablesBase["ingestSource"];
 };
 
 /** The tables available in this remote SpacetimeDB module. Each table reference doubles as a query builder. */

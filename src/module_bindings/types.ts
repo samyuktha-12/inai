@@ -12,6 +12,7 @@ import {
 
 export const Decision = __t.object("Decision", {
   id: __t.u64(),
+  weddingId: __t.option(__t.u64()),
   title: __t.string(),
   createdBy: __t.identity(),
   createdAt: __t.timestamp(),
@@ -27,18 +28,79 @@ export const DecisionOption = __t.object("DecisionOption", {
 });
 export type DecisionOption = __Infer<typeof DecisionOption>;
 
+export const Event = __t.object("Event", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  title: __t.string(),
+  startsAt: __t.option(__t.timestamp()),
+  venue: __t.option(__t.string()),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type Event = __Infer<typeof Event>;
+
+export const Expense = __t.object("Expense", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  category: __t.string(),
+  label: __t.string(),
+  amountPaise: __t.i64(),
+  paid: __t.bool(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type Expense = __Infer<typeof Expense>;
+
+export const IngestSource = __t.object("IngestSource", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  kind: __t.string(),
+  status: __t.string(),
+  itemCount: __t.u32(),
+  submittedBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type IngestSource = __Infer<typeof IngestSource>;
+
+export const Member = __t.object("Member", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  identity: __t.identity(),
+  role: __t.string(),
+  side: __t.option(__t.string()),
+  joinedAt: __t.timestamp(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type Member = __Infer<typeof Member>;
+
 export const Participant = __t.object("Participant", {
   identity: __t.identity(),
   name: __t.string(),
   connected: __t.bool(),
   role: __t.string(),
   side: __t.option(__t.string()),
+  dateOfBirth: __t.option(__t.string()),
+  mealPreference: __t.option(__t.string()),
+  profileState: __t.string(),
+  profileSource: __t.string(),
+  profileUpdatedAt: __t.option(__t.timestamp()),
   phone: __t.option(__t.string()),
 });
 export type Participant = __Infer<typeof Participant>;
 
 export const Task = __t.object("Task", {
   id: __t.u64(),
+  weddingId: __t.option(__t.u64()),
   title: __t.string(),
   ownerIdentity: __t.identity(),
   done: __t.bool(),
@@ -66,4 +128,33 @@ export const WebhookSecret = __t.object("WebhookSecret", {
   value: __t.string(),
 });
 export type WebhookSecret = __Infer<typeof WebhookSecret>;
+
+export const Wedding = __t.object("Wedding", {
+  id: __t.u64(),
+  createdBy: __t.identity(),
+  primaryName: __t.string(),
+  partnerName: __t.string(),
+  city: __t.string(),
+  dateLabel: __t.string(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type Wedding = __Infer<typeof Wedding>;
+
+export const WeddingInvitation = __t.object("WeddingInvitation", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  code: __t.string(),
+  role: __t.string(),
+  side: __t.option(__t.string()),
+  status: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+  acceptedBy: __t.option(__t.identity()),
+  acceptedAt: __t.option(__t.timestamp()),
+});
+export type WeddingInvitation = __Infer<typeof WeddingInvitation>;
 
