@@ -87,6 +87,20 @@ export const Event = __t.object("Event", {
 });
 export type Event = __Infer<typeof Event>;
 
+export const EventChecklistItem = __t.object("EventChecklistItem", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  eventId: __t.u64(),
+  label: __t.string(),
+  done: __t.bool(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type EventChecklistItem = __Infer<typeof EventChecklistItem>;
+
 export const Expense = __t.object("Expense", {
   id: __t.u64(),
   weddingId: __t.u64(),

@@ -35,8 +35,11 @@ import {
 
 // Import all reducer arg schemas
 import AcceptWeddingInvitationReducer from "./accept_wedding_invitation_reducer";
+import AddEventChecklistItemReducer from "./add_event_checklist_item_reducer";
 import AddMemberReducer from "./add_member_reducer";
+import ApplyEventTemplateReducer from "./apply_event_template_reducer";
 import CastVoteReducer from "./cast_vote_reducer";
+import ConfirmEventChecklistItemReducer from "./confirm_event_checklist_item_reducer";
 import ConfirmExpenseReducer from "./confirm_expense_reducer";
 import ConfirmReportedTaskReducer from "./confirm_reported_task_reducer";
 import CreateCustomWeddingAgentReducer from "./create_custom_wedding_agent_reducer";
@@ -56,6 +59,7 @@ import SeedPriyaRahulDemoReducer from "./seed_priya_rahul_demo_reducer";
 import SendWeddingMessageReducer from "./send_wedding_message_reducer";
 import SetBudgetReducer from "./set_budget_reducer";
 import SetDeciderReducer from "./set_decider_reducer";
+import SetEventChecklistItemDoneReducer from "./set_event_checklist_item_done_reducer";
 import SetMembershipRoleReducer from "./set_membership_role_reducer";
 import SetMembershipSideReducer from "./set_membership_side_reducer";
 import SetNameReducer from "./set_name_reducer";
@@ -78,6 +82,7 @@ import CustomWeddingAgentRow from "./custom_wedding_agent_table";
 import DecisionRow from "./decision_table";
 import DecisionOptionRow from "./decision_option_table";
 import EventRow from "./event_table";
+import EventChecklistItemRow from "./event_checklist_item_table";
 import ExpenseRow from "./expense_table";
 import IngestSourceRow from "./ingest_source_table";
 import MemberRow from "./member_table";
@@ -175,6 +180,23 @@ const tablesSchema = __schema({
       { name: 'event_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, EventRow),
+  eventChecklistItem: __table({
+    name: 'event_checklist_item',
+    indexes: [
+      { accessor: 'by_event', name: 'event_checklist_item_event_id_idx_btree', algorithm: 'btree', columns: [
+        'eventId',
+      ] },
+      { accessor: 'id', name: 'event_checklist_item_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'event_checklist_item_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'event_checklist_item_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, EventChecklistItemRow),
   expense: __table({
     name: 'expense',
     indexes: [
@@ -363,8 +385,11 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("accept_wedding_invitation", AcceptWeddingInvitationReducer),
+  __reducerSchema("add_event_checklist_item", AddEventChecklistItemReducer),
   __reducerSchema("add_member", AddMemberReducer),
+  __reducerSchema("apply_event_template", ApplyEventTemplateReducer),
   __reducerSchema("cast_vote", CastVoteReducer),
+  __reducerSchema("confirm_event_checklist_item", ConfirmEventChecklistItemReducer),
   __reducerSchema("confirm_expense", ConfirmExpenseReducer),
   __reducerSchema("confirm_reported_task", ConfirmReportedTaskReducer),
   __reducerSchema("create_custom_wedding_agent", CreateCustomWeddingAgentReducer),
@@ -384,6 +409,7 @@ const reducersSchema = __reducers(
   __reducerSchema("send_wedding_message", SendWeddingMessageReducer),
   __reducerSchema("set_budget", SetBudgetReducer),
   __reducerSchema("set_decider", SetDeciderReducer),
+  __reducerSchema("set_event_checklist_item_done", SetEventChecklistItemDoneReducer),
   __reducerSchema("set_membership_role", SetMembershipRoleReducer),
   __reducerSchema("set_membership_side", SetMembershipSideReducer),
   __reducerSchema("set_name", SetNameReducer),
@@ -410,6 +436,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "custom_wedding_agent": Omit<typeof tablesSchema.schemaType.tables["customWeddingAgent"], "accessorName"> & { readonly accessorName: "custom_wedding_agent" };
     /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
     readonly "decision_option": Omit<typeof tablesSchema.schemaType.tables["decisionOption"], "accessorName"> & { readonly accessorName: "decision_option" };
+    /** @deprecated Use `eventChecklistItem` instead. This alias will be removed in the next major version. */
+    readonly "event_checklist_item": Omit<typeof tablesSchema.schemaType.tables["eventChecklistItem"], "accessorName"> & { readonly accessorName: "event_checklist_item" };
     /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
     readonly "ingest_source": Omit<typeof tablesSchema.schemaType.tables["ingestSource"], "accessorName"> & { readonly accessorName: "ingest_source" };
     /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */
@@ -443,6 +471,7 @@ const tableAccessorAliases = {
   "coordinator_request": "coordinatorRequest",
   "custom_wedding_agent": "customWeddingAgent",
   "decision_option": "decisionOption",
+  "event_checklist_item": "eventChecklistItem",
   "ingest_source": "ingestSource",
   "mood_item": "moodItem",
   "vendor_consent": "vendorConsent",
@@ -475,6 +504,8 @@ export type DbView = __DbViewBase & {
   readonly "custom_wedding_agent": __DbViewBase["customWeddingAgent"];
   /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
   readonly "decision_option": __DbViewBase["decisionOption"];
+  /** @deprecated Use `eventChecklistItem` instead. This alias will be removed in the next major version. */
+  readonly "event_checklist_item": __DbViewBase["eventChecklistItem"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __DbViewBase["ingestSource"];
   /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */
@@ -497,6 +528,8 @@ export type Tables = __TablesBase & {
   readonly "custom_wedding_agent": __TablesBase["customWeddingAgent"];
   /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
   readonly "decision_option": __TablesBase["decisionOption"];
+  /** @deprecated Use `eventChecklistItem` instead. This alias will be removed in the next major version. */
+  readonly "event_checklist_item": __TablesBase["eventChecklistItem"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __TablesBase["ingestSource"];
   /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */

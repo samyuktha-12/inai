@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Timestamp } from 'spacetimedb';
-import { BadgeIndianRupee, Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, FileText, Image, Landmark, MapPin, MessageCircle, Milestone, Plus, ShieldCheck, Store, Upload, Users, X } from 'lucide-react';
+import { AlertTriangle, BadgeIndianRupee, Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, Clock3, FileText, Image, Landmark, MapPin, MessageCircle, Milestone, Plus, ShieldCheck, Store, Upload, Users, X } from 'lucide-react';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import { parseImport, type ParsedImport } from '../lib/ingest';
@@ -21,6 +21,15 @@ const assistants = [
   { kind: 'decision', title: 'Decision helper', copy: 'Summarises discussion and suggests a decision for a person to make in the app.' },
   { kind: 'guest_logistics', title: 'Guest logistics', copy: 'Organises RSVP and travel details as in-app drafts.' },
   { kind: 'vendor_liaison', title: 'Vendor helper', copy: 'Prepares vendor follow-up drafts in the app. It never contacts vendors without consent.' },
+  { kind: 'menu_planner', title: 'Menu planner', copy: 'Shapes menu ideas around your events, guests, and dietary notes for family review.' },
+] as const;
+
+const eventTemplates = [
+  { key: 'haldi', title: 'Haldi', copy: 'A calm, practical start for the turmeric ceremony.' },
+  { key: 'mehendi', title: 'Mehendi', copy: 'Artist, comfort, music, and photo details in one place.' },
+  { key: 'sangeet', title: 'Sangeet', copy: 'Keep performances and the run of show clear for everyone.' },
+  { key: 'ceremony', title: 'Wedding ceremony', copy: 'A respectful ritual and guest-arrival checklist.' },
+  { key: 'reception', title: 'Reception', copy: 'Welcome, food, stage, and arrival details to review.' },
 ] as const;
 
 type View = 'calendar' | 'events' | 'budget' | 'guests' | 'mood' | 'connect';
@@ -200,6 +209,61 @@ function MoodBoard({ weddingId }: { weddingId: bigint }) {
   return <section className="mood-board"><div className="mood-board-heading"><div><p className="section-label">Pinterest inspiration</p><h2>A feeling to build from</h2><p>These are source ideas, not final choices. Bring any one into Decide when the family is ready.</p></div><span className="mood-review-badge">Needs review</span></div>{items.length ? <div className="mood-grid">{items.map(item => <article className="mood-card" key={String(item.id)}><div className="mood-swatch" style={{ background: `linear-gradient(135deg, ${item.palette})` }} /><div><small>Pinterest · needs review</small><h3>{item.title}</h3><p>{item.note}</p></div></article>)}</div> : <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>}</section>;
 }
 
+function EventWorkspace({ weddingId }: { weddingId: bigint }) {
+  const { identity } = useSpacetimeDB();
+  const [members] = useTable(tables.member);
+  const [events] = useTable(tables.event);
+  const [checklistItems] = useTable(tables.eventChecklistItem);
+  const [vendors] = useTable(tables.vendor);
+  const applyEventTemplate = useReducer(reducers.applyEventTemplate);
+  const addEventChecklistItem = useReducer(reducers.addEventChecklistItem);
+  const confirmEventChecklistItem = useReducer(reducers.confirmEventChecklistItem);
+  const setEventChecklistItemDone = useReducer(reducers.setEventChecklistItemDone);
+  const [addingEvent, setAddingEvent] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === identity?.toHexString());
+  const canManage = membership?.role === 'couple' || membership?.role === 'planner';
+  const weddingEvents = events.filter(event => event.weddingId === weddingId);
+  const weddingVendors = vendors.filter(vendor => vendor.weddingId === weddingId);
+  const forEvent = (eventId: bigint) => checklistItems.filter(item => item.eventId === eventId);
+  const eventStatus = (event: typeof weddingEvents[number]) => {
+    const items = forEvent(event.id);
+    const confirmed = items.filter(item => item.state === 'confirmed');
+    const completed = confirmed.filter(item => item.done).length;
+    const suggestions = items.filter(item => item.state === 'reported').length;
+    const missing = [
+      ...(event.state === 'reported' ? ['Confirm event details'] : []),
+      ...(!event.startsAt ? ['Set date and time'] : []),
+      ...(!event.venue ? ['Set venue'] : []),
+      ...(suggestions ? [`Review ${suggestions} checklist suggestion${suggestions === 1 ? '' : 's'}`] : []),
+      ...(!items.length ? ['Add an event checklist'] : []),
+    ];
+    return { completed, total: confirmed.length, suggestions, missing };
+  };
+  const allConfirmed = weddingEvents.reduce((total, event) => total + eventStatus(event).total, 0);
+  const allCompleted = weddingEvents.reduce((total, event) => total + eventStatus(event).completed, 0);
+  const priorityItems = weddingEvents.flatMap(event => eventStatus(event).missing.slice(0, 2).map(label => ({ event: event.title, label }))).slice(0, 5);
+  const addChecklist = (eventId: bigint) => {
+    const value = drafts[String(eventId)]?.trim();
+    if (!value) return;
+    addEventChecklistItem({ eventId, label: value });
+    setDrafts(current => ({ ...current, [String(eventId)]: '' }));
+  };
+
+  return <section className="event-workspace">
+    <div className="event-workspace-heading"><div><p className="section-label">Events and checklists</p><h2>Start with the moments your family knows</h2><p>Use a familiar event as a practical starting point, then keep only the details that fit your wedding. Template items are suggestions until a person confirms them.</p></div>{canManage && <button type="button" className="outline-action" onClick={() => setAddingEvent(true)}><Plus size={16}/> Add event</button>}</div>
+    {weddingEvents.length > 0 && <section className="event-overview" aria-label="Wedding planning progress"><div className="event-overview-stat"><span>Confirmed checklist progress</span><b>{allCompleted}/{allConfirmed || 0}</b><small>{allConfirmed ? 'tasks complete' : 'Confirm a few suggestions to begin'}</small></div><div className="event-overview-panel"><div className="event-overview-heading"><AlertTriangle size={17}/><div><b>Needs attention</b><span>These are planning gaps, not automatic decisions.</span></div></div>{priorityItems.length ? <ul>{priorityItems.map(item => <li key={`${item.event}-${item.label}`}><b>{item.event}</b><span>{item.label}</span></li>)}</ul> : <p className="overview-clear"><CheckCircle2 size={17}/> The essential event details are in place.</p>}</div><div className="event-overview-panel"><div className="event-overview-heading"><Store size={17}/><div><b>Vendor updates</b><span>Latest shared booking status</span></div></div>{weddingVendors.length ? <ul>{weddingVendors.slice(0, 4).map(vendor => <li key={String(vendor.id)}><b>{vendor.name}</b><span className={`vendor-state ${vendor.bookingState}`}>{vendor.bookingState === 'booked' ? 'Booked' : vendor.bookingState === 'selected' ? 'Selected' : vendor.bookingState === 'declined' ? 'Not proceeding' : 'Shortlisted'}</span></li>)}</ul> : <p className="overview-clear">Add vendors in Budget to see their updates here.</p>}</div></section>}
+    {addingEvent && <AddEvent weddingId={weddingId} onDone={() => setAddingEvent(false)} />}
+    {canManage && <div className="event-template-section"><div><p className="section-label">Quick start</p><h3>Add a usual event</h3></div><div className="event-template-grid">{eventTemplates.map(template => <button type="button" key={template.key} onClick={() => applyEventTemplate({ weddingId, template: template.key })}><b>{template.title}</b><span>{template.copy}</span><small><Plus size={14}/> Add checklist</small></button>)}</div></div>}
+    {weddingEvents.length ? <div className="event-detail-list">{weddingEvents.map(event => {
+      const items = forEvent(event.id);
+      const status = eventStatus(event);
+      const progress = status.total ? Math.round((status.completed / status.total) * 100) : 0;
+      return <article className={`event-detail-card ${event.state === 'reported' ? 'reported' : ''}`} key={String(event.id)}><div className="event-detail-title"><span className="card-icon"><CalendarDays size={20}/></span><div><h3>{event.title}</h3><p>{event.venue ?? 'Time and place to confirm'}{event.state === 'reported' ? ' · event details need review' : ''}</p></div><small>{status.completed}/{status.total} confirmed tasks done</small></div><div className="event-progress" aria-label={`${event.title} checklist progress`}><span style={{ width: `${progress}%` }} /><small>{status.total ? `${progress}% complete` : 'Confirm checklist suggestions to track progress'}</small></div>{status.missing.length > 0 && <div className="event-missing"><AlertTriangle size={15}/><span><b>Still needed:</b> {status.missing.join(' · ')}</span></div>}{items.length ? <ul className="event-checklist">{items.map(item => <li className={`${item.state === 'reported' ? 'reported' : ''} ${item.done ? 'done' : ''}`} key={String(item.id)}>{item.state === 'confirmed' && canManage ? <label><input type="checkbox" checked={item.done} onChange={event => setEventChecklistItemDone({ itemId: item.id, done: event.target.checked })}/><span>{item.label}</span></label> : <span>{item.label}</span>}{item.state === 'reported' ? <div><small>Template suggestion</small>{canManage && <><button type="button" onClick={() => confirmEventChecklistItem({ itemId: item.id, keep: true })}>Keep</button><button type="button" onClick={() => confirmEventChecklistItem({ itemId: item.id, keep: false })}>Remove</button></>}</div> : !canManage && <small>{item.done ? 'Done' : 'Open'}</small>}</li>)}</ul> : <p className="event-checklist-empty">Add the first task your family wants to keep track of for this event.</p>}{canManage && <form className="event-checklist-add" onSubmit={form => { form.preventDefault(); addChecklist(event.id); }}><input value={drafts[String(event.id)] ?? ''} onChange={input => setDrafts(current => ({ ...current, [String(event.id)]: input.target.value }))} placeholder="Add a checklist item" maxLength={240}/><button type="submit"><Plus size={16}/> Add</button></form>}</article>;
+    })}</div> : !addingEvent && <div className="panel"><ClipboardCheck color="#087d6b"/><h2>Begin with an event</h2><p>Add a family event above and Inai will give your group a calm, reviewable checklist to start from.</p></div>}
+  </section>;
+}
+
 function AddCustomAgent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void }) {
   const createCustomWeddingAgent = useReducer(reducers.createCustomWeddingAgent);
   const [name, setName] = useState('');
@@ -283,14 +347,13 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
 
 export default function WeddingTab({ weddingId }: { weddingId: bigint }) {
   const [view, setView] = useState<View>('calendar');
-  const [addingEvent, setAddingEvent] = useState(false);
   const [weddings] = useTable(tables.wedding);
   const [events] = useTable(tables.event);
   const wedding = weddings.find(row => row.id === weddingId);
   const weddingEvents = events.filter(row => row.weddingId === weddingId);
   const items: Record<Exclude<View, 'budget'>, React.ReactNode> = {
     calendar: <CalendarItinerary wedding={wedding} events={weddingEvents} />,
-    events: <><div className="view-action-heading"><p className="section-label">Events</p><button type="button" className="outline-action" onClick={() => setAddingEvent(true)}><Plus size={16}/> Add event</button></div>{addingEvent && <AddEvent weddingId={weddingId} onDone={() => setAddingEvent(false)} />}{weddingEvents.length ? weddingEvents.map(event => <div className={`inai-card ${event.state === 'reported' ? 'reported' : ''}`} key={String(event.id)}><span className="card-icon"><CalendarDays size={21}/></span><span className="card-content"><b>{event.title}</b><span>{event.venue ?? 'Venue to confirm'}{event.state === 'reported' ? ' · needs confirmation' : ''}</span></span></div>) : !addingEvent && <div className="panel"><CalendarDays color="#087d6b"/><h2>Start with the events</h2><p>Add an event now or bring in a calendar export. Your group reviews every new detail.</p></div>}</>,
+    events: <EventWorkspace weddingId={weddingId} />,
     guests: <ContactImport weddingId={weddingId} />,
     mood: <MoodBoard weddingId={weddingId} />,
     connect: <ConnectWedding weddingId={weddingId}/>,

@@ -7,8 +7,11 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
 import AcceptWeddingInvitationReducer from "../accept_wedding_invitation_reducer";
+import AddEventChecklistItemReducer from "../add_event_checklist_item_reducer";
 import AddMemberReducer from "../add_member_reducer";
+import ApplyEventTemplateReducer from "../apply_event_template_reducer";
 import CastVoteReducer from "../cast_vote_reducer";
+import ConfirmEventChecklistItemReducer from "../confirm_event_checklist_item_reducer";
 import ConfirmExpenseReducer from "../confirm_expense_reducer";
 import ConfirmReportedTaskReducer from "../confirm_reported_task_reducer";
 import CreateCustomWeddingAgentReducer from "../create_custom_wedding_agent_reducer";
@@ -28,6 +31,7 @@ import SeedPriyaRahulDemoReducer from "../seed_priya_rahul_demo_reducer";
 import SendWeddingMessageReducer from "../send_wedding_message_reducer";
 import SetBudgetReducer from "../set_budget_reducer";
 import SetDeciderReducer from "../set_decider_reducer";
+import SetEventChecklistItemDoneReducer from "../set_event_checklist_item_done_reducer";
 import SetMembershipRoleReducer from "../set_membership_role_reducer";
 import SetMembershipSideReducer from "../set_membership_side_reducer";
 import SetNameReducer from "../set_name_reducer";
@@ -42,8 +46,11 @@ import ToggleTaskReducer from "../toggle_task_reducer";
 import UpdateMyProfileReducer from "../update_my_profile_reducer";
 
 export type AcceptWeddingInvitationParams = __Infer<typeof AcceptWeddingInvitationReducer>;
+export type AddEventChecklistItemParams = __Infer<typeof AddEventChecklistItemReducer>;
 export type AddMemberParams = __Infer<typeof AddMemberReducer>;
+export type ApplyEventTemplateParams = __Infer<typeof ApplyEventTemplateReducer>;
 export type CastVoteParams = __Infer<typeof CastVoteReducer>;
+export type ConfirmEventChecklistItemParams = __Infer<typeof ConfirmEventChecklistItemReducer>;
 export type ConfirmExpenseParams = __Infer<typeof ConfirmExpenseReducer>;
 export type ConfirmReportedTaskParams = __Infer<typeof ConfirmReportedTaskReducer>;
 export type CreateCustomWeddingAgentParams = __Infer<typeof CreateCustomWeddingAgentReducer>;
@@ -63,6 +70,7 @@ export type SeedPriyaRahulDemoParams = __Infer<typeof SeedPriyaRahulDemoReducer>
 export type SendWeddingMessageParams = __Infer<typeof SendWeddingMessageReducer>;
 export type SetBudgetParams = __Infer<typeof SetBudgetReducer>;
 export type SetDeciderParams = __Infer<typeof SetDeciderReducer>;
+export type SetEventChecklistItemDoneParams = __Infer<typeof SetEventChecklistItemDoneReducer>;
 export type SetMembershipRoleParams = __Infer<typeof SetMembershipRoleReducer>;
 export type SetMembershipSideParams = __Infer<typeof SetMembershipSideReducer>;
 export type SetNameParams = __Infer<typeof SetNameReducer>;

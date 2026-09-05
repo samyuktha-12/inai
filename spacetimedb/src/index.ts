@@ -19,7 +19,7 @@ type Side = (typeof SIDES)[number];
 const INGEST_KINDS = ['pinterest', 'whatsapp', 'guests', 'quotes', 'calendar', 'vendor_details'] as const;
 type IngestKind = (typeof INGEST_KINDS)[number];
 
-const WEDDING_AGENT_KINDS = ['coordinator', 'decision', 'guest_logistics', 'vendor_liaison'] as const;
+const WEDDING_AGENT_KINDS = ['coordinator', 'decision', 'guest_logistics', 'vendor_liaison', 'menu_planner'] as const;
 type WeddingAgentKind = (typeof WEDDING_AGENT_KINDS)[number];
 
 const participant = table(
@@ -291,6 +291,24 @@ const mood_item = table(
   }
 );
 
+// Template checklists give each event a practical starting point. Generated
+// items remain reported until a wedding manager keeps them for this plan.
+const event_checklist_item = table(
+  { name: 'event_checklist_item', public: true, indexes: [{ accessor: 'by_event', algorithm: 'btree', columns: ['eventId'] }, { accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    eventId: t.u64(),
+    label: t.string(),
+    done: t.bool().default(false),
+    state: t.string().default('reported'),
+    source: t.string().default('template'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
 // The planning group chat is a shared, human-authored coordination record.
 // Agent-written summaries belong in proposals, never in this chat as facts.
 const wedding_message = table(
@@ -433,6 +451,7 @@ const spacetimedb = schema({
   wedding_agent_setting,
   custom_wedding_agent,
   mood_item,
+  event_checklist_item,
   wedding_message,
   coordinator_request,
 });
@@ -454,6 +473,14 @@ function seedDecision(ctx: Ctx, weddingId: bigint, title: string, options: strin
     ctx.db.decision_option.insert({ id: 0n, decisionId: inserted.id, label });
   }
 }
+
+const EVENT_TEMPLATES: Record<string, { title: string; checklist: string[] }> = {
+  haldi: { title: 'Haldi', checklist: ['Confirm ceremony time and home or venue', 'Choose turmeric-safe seating and floor covering', 'Arrange towels, water, and a change area', 'Share the family dress note'] },
+  mehendi: { title: 'Mehendi', checklist: ['Confirm artist arrival and guest count', 'Choose the seating layout and shade', 'Prepare music and welcome drinks', 'Share the hands-free photo moment plan'] },
+  sangeet: { title: 'Sangeet', checklist: ['Confirm the run of show', 'Collect family song choices', 'Check sound, stage, and rehearsal timing', 'Share arrival and outfit notes'] },
+  ceremony: { title: 'Wedding ceremony', checklist: ['Confirm the muhurtham and priest schedule', 'Check mandap, seating, and shade', 'Prepare ritual items with the family', 'Share the arrival plan with key guests'] },
+  reception: { title: 'Reception', checklist: ['Confirm the welcome line and stage timing', 'Finalise the menu and service flow', 'Check lights, sound, and photo plan', 'Share guest arrival and parking notes'] },
+};
 
 export const init = spacetimedb.init(() => {});
 
@@ -763,6 +790,24 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     if ([...ctx.db.mood_item.iter()].some(item => item.weddingId === weddingId && item.title === title)) continue;
     ctx.db.mood_item.insert({ id: 0n, weddingId, title, note, palette, state: 'reported', source: 'pinterest', updatedBy: ctx.sender, confidence: 0.9, updatedAt: ctx.timestamp });
   }
+  if (![...ctx.db.wedding_agent.by_wedding_kind.filter([weddingId, 'menu_planner'])].length) {
+    ctx.db.wedding_agent.insert({ id: 0n, weddingId, kind: 'menu_planner', enabled: true, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  if (![...ctx.db.wedding_agent_setting.by_wedding_kind.filter([weddingId, 'menu_planner'])].length) {
+    ctx.db.wedding_agent_setting.insert({ id: 0n, weddingId, kind: 'menu_planner', instructions: 'Draft a mostly vegetarian Tamil menu for each event, include one Jain-friendly option, and keep every suggestion ready for family review.', state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  for (const [eventTitle, label] of [
+    ['Mehendi evening', 'Confirm artist arrival time and number of artists'],
+    ['Mehendi evening', 'Arrange shaded seating, drinks, and a photo corner'],
+    ['Sangeet night', 'Share the family performance order and rehearsal time'],
+    ['Sangeet night', 'Confirm stage, sound check, and dinner service timing'],
+    ['Wedding ceremony', 'Confirm muhurtham timing with the priest and family'],
+    ['Wedding ceremony', 'Review mandap seating, ritual items, and guest arrivals'],
+  ] as const) {
+    const event = [...ctx.db.event.iter()].find(item => item.weddingId === weddingId && item.title === eventTitle);
+    if (!event || [...ctx.db.event_checklist_item.by_event.filter(event.id)].some(item => item.label === label)) continue;
+    ctx.db.event_checklist_item.insert({ id: 0n, weddingId, eventId: event.id, label, done: false, state: 'reported', source: 'template', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
   for (const [category, label, amountPaise, paid] of [
     ['Venue', 'Leela Palace ceremony spaces', 8500000n, true],
     ['Catering', 'South Indian lunch for 240 guests', 6240000n, false],
@@ -815,6 +860,66 @@ export const createEvent = spacetimedb.reducer(
       confidence,
       updatedAt: ctx.timestamp,
     });
+  }
+);
+
+export const applyEventTemplate = spacetimedb.reducer(
+  { weddingId: t.u64(), template: t.string() },
+  (ctx, { weddingId, template }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add an event template');
+    const selected = EVENT_TEMPLATES[template];
+    if (!selected) throw new SenderError('unknown event template');
+    const existing = [...ctx.db.event.iter()].find(event => event.weddingId === weddingId && event.title === selected.title);
+    const event = existing ?? ctx.db.event.insert({
+      id: 0n,
+      weddingId,
+      title: selected.title,
+      startsAt: undefined,
+      venue: undefined,
+      state: 'reported',
+      source: 'template',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
+    for (const label of selected.checklist) {
+      if ([...ctx.db.event_checklist_item.by_event.filter(event.id)].some(item => item.label === label)) continue;
+      ctx.db.event_checklist_item.insert({ id: 0n, weddingId, eventId: event.id, label, done: false, state: 'reported', source: 'template', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    }
+  }
+);
+
+export const addEventChecklistItem = spacetimedb.reducer(
+  { eventId: t.u64(), label: t.string() },
+  (ctx, { eventId, label }) => {
+    const event = ctx.db.event.id.find(eventId);
+    if (!event || !canManageWedding(ctx, event.weddingId)) throw new SenderError('only the couple or event creator can add an event checklist item');
+    const value = label.trim();
+    if (!value || value.length > 240) throw new SenderError('checklist item must be between 1 and 240 characters');
+    ctx.db.event_checklist_item.insert({ id: 0n, weddingId: event.weddingId, eventId, label: value, done: false, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+export const confirmEventChecklistItem = spacetimedb.reducer(
+  { itemId: t.u64(), keep: t.bool() },
+  (ctx, { itemId, keep }) => {
+    const item = ctx.db.event_checklist_item.id.find(itemId);
+    if (!item || !canManageWedding(ctx, item.weddingId)) throw new SenderError('only the couple or event creator can review an event checklist item');
+    if (!keep) {
+      ctx.db.event_checklist_item.id.delete(itemId);
+      return;
+    }
+    ctx.db.event_checklist_item.id.update({ ...item, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+export const setEventChecklistItemDone = spacetimedb.reducer(
+  { itemId: t.u64(), done: t.bool() },
+  (ctx, { itemId, done }) => {
+    const item = ctx.db.event_checklist_item.id.find(itemId);
+    if (!item || !canManageWedding(ctx, item.weddingId)) throw new SenderError('only the couple or event creator can update an event checklist item');
+    if (item.state !== 'confirmed') throw new SenderError('confirm this checklist item before marking it complete');
+    ctx.db.event_checklist_item.id.update({ ...item, done, updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
   }
 );
 
