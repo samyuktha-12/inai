@@ -37,24 +37,31 @@ import {
 import AcceptWeddingInvitationReducer from "./accept_wedding_invitation_reducer";
 import AddMemberReducer from "./add_member_reducer";
 import CastVoteReducer from "./cast_vote_reducer";
+import ConfirmExpenseReducer from "./confirm_expense_reducer";
 import ConfirmReportedTaskReducer from "./confirm_reported_task_reducer";
 import CreateCustomWeddingAgentReducer from "./create_custom_wedding_agent_reducer";
 import CreateDecisionReducer from "./create_decision_reducer";
 import CreateEventReducer from "./create_event_reducer";
+import CreateExpenseReducer from "./create_expense_reducer";
 import CreateTaskReducer from "./create_task_reducer";
+import CreateVendorReducer from "./create_vendor_reducer";
 import CreateWeddingReducer from "./create_wedding_reducer";
 import CreateWeddingInvitationReducer from "./create_wedding_invitation_reducer";
 import LinkPhoneReducer from "./link_phone_reducer";
 import LockDecisionReducer from "./lock_decision_reducer";
+import RecordImportedExpenseReducer from "./record_imported_expense_reducer";
 import RequestCoordinatorActionReducer from "./request_coordinator_action_reducer";
 import RequestIngestReducer from "./request_ingest_reducer";
 import SendWeddingMessageReducer from "./send_wedding_message_reducer";
+import SetBudgetReducer from "./set_budget_reducer";
 import SetDeciderReducer from "./set_decider_reducer";
 import SetMembershipRoleReducer from "./set_membership_role_reducer";
 import SetMembershipSideReducer from "./set_membership_side_reducer";
 import SetNameReducer from "./set_name_reducer";
 import SetRoleReducer from "./set_role_reducer";
 import SetSideReducer from "./set_side_reducer";
+import SetVendorBookingStateReducer from "./set_vendor_booking_state_reducer";
+import SetVendorConsentReducer from "./set_vendor_consent_reducer";
 import SetWebhookSecretReducer from "./set_webhook_secret_reducer";
 import SetWeddingAgentReducer from "./set_wedding_agent_reducer";
 import SetWeddingAgentInstructionsReducer from "./set_wedding_agent_instructions_reducer";
@@ -64,6 +71,7 @@ import UpdateMyProfileReducer from "./update_my_profile_reducer";
 // Import all procedure arg schemas
 
 // Import all table schema definitions
+import BudgetRow from "./budget_table";
 import CoordinatorRequestRow from "./coordinator_request_table";
 import CustomWeddingAgentRow from "./custom_wedding_agent_table";
 import DecisionRow from "./decision_table";
@@ -74,6 +82,8 @@ import IngestSourceRow from "./ingest_source_table";
 import MemberRow from "./member_table";
 import ParticipantRow from "./participant_table";
 import TaskRow from "./task_table";
+import VendorRow from "./vendor_table";
+import VendorConsentRow from "./vendor_consent_table";
 import VoteRow from "./vote_table";
 import WeddingRow from "./wedding_table";
 import WeddingAgentRow from "./wedding_agent_table";
@@ -84,6 +94,20 @@ import WeddingMessageRow from "./wedding_message_table";
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  budget: __table({
+    name: 'budget',
+    indexes: [
+      { accessor: 'id', name: 'budget_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'budget_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'budget_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, BudgetRow),
   coordinatorRequest: __table({
     name: 'coordinator_request',
     indexes: [
@@ -220,6 +244,34 @@ const tablesSchema = __schema({
       { name: 'task_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, TaskRow),
+  vendor: __table({
+    name: 'vendor',
+    indexes: [
+      { accessor: 'id', name: 'vendor_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'vendor_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'vendor_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, VendorRow),
+  vendorConsent: __table({
+    name: 'vendor_consent',
+    indexes: [
+      { accessor: 'id', name: 'vendor_consent_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_vendor', name: 'vendor_consent_vendor_id_idx_btree', algorithm: 'btree', columns: [
+        'vendorId',
+      ] },
+    ],
+    constraints: [
+      { name: 'vendor_consent_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, VendorConsentRow),
   vote: __table({
     name: 'vote',
     indexes: [
@@ -297,24 +349,31 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_wedding_invitation", AcceptWeddingInvitationReducer),
   __reducerSchema("add_member", AddMemberReducer),
   __reducerSchema("cast_vote", CastVoteReducer),
+  __reducerSchema("confirm_expense", ConfirmExpenseReducer),
   __reducerSchema("confirm_reported_task", ConfirmReportedTaskReducer),
   __reducerSchema("create_custom_wedding_agent", CreateCustomWeddingAgentReducer),
   __reducerSchema("create_decision", CreateDecisionReducer),
   __reducerSchema("create_event", CreateEventReducer),
+  __reducerSchema("create_expense", CreateExpenseReducer),
   __reducerSchema("create_task", CreateTaskReducer),
+  __reducerSchema("create_vendor", CreateVendorReducer),
   __reducerSchema("create_wedding", CreateWeddingReducer),
   __reducerSchema("create_wedding_invitation", CreateWeddingInvitationReducer),
   __reducerSchema("link_phone", LinkPhoneReducer),
   __reducerSchema("lock_decision", LockDecisionReducer),
+  __reducerSchema("record_imported_expense", RecordImportedExpenseReducer),
   __reducerSchema("request_coordinator_action", RequestCoordinatorActionReducer),
   __reducerSchema("request_ingest", RequestIngestReducer),
   __reducerSchema("send_wedding_message", SendWeddingMessageReducer),
+  __reducerSchema("set_budget", SetBudgetReducer),
   __reducerSchema("set_decider", SetDeciderReducer),
   __reducerSchema("set_membership_role", SetMembershipRoleReducer),
   __reducerSchema("set_membership_side", SetMembershipSideReducer),
   __reducerSchema("set_name", SetNameReducer),
   __reducerSchema("set_role", SetRoleReducer),
   __reducerSchema("set_side", SetSideReducer),
+  __reducerSchema("set_vendor_booking_state", SetVendorBookingStateReducer),
+  __reducerSchema("set_vendor_consent", SetVendorConsentReducer),
   __reducerSchema("set_webhook_secret", SetWebhookSecretReducer),
   __reducerSchema("set_wedding_agent", SetWeddingAgentReducer),
   __reducerSchema("set_wedding_agent_instructions", SetWeddingAgentInstructionsReducer),
@@ -336,6 +395,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "decision_option": Omit<typeof tablesSchema.schemaType.tables["decisionOption"], "accessorName"> & { readonly accessorName: "decision_option" };
     /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
     readonly "ingest_source": Omit<typeof tablesSchema.schemaType.tables["ingestSource"], "accessorName"> & { readonly accessorName: "ingest_source" };
+    /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
+    readonly "vendor_consent": Omit<typeof tablesSchema.schemaType.tables["vendorConsent"], "accessorName"> & { readonly accessorName: "vendor_consent" };
     /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
     readonly "wedding_agent": Omit<typeof tablesSchema.schemaType.tables["weddingAgent"], "accessorName"> & { readonly accessorName: "wedding_agent" };
     /** @deprecated Use `weddingAgentSetting` instead. This alias will be removed in the next major version. */
@@ -364,6 +425,7 @@ const tableAccessorAliases = {
   "custom_wedding_agent": "customWeddingAgent",
   "decision_option": "decisionOption",
   "ingest_source": "ingestSource",
+  "vendor_consent": "vendorConsent",
   "wedding_agent": "weddingAgent",
   "wedding_agent_setting": "weddingAgentSetting",
   "wedding_message": "weddingMessage",
@@ -395,6 +457,8 @@ export type DbView = __DbViewBase & {
   readonly "decision_option": __DbViewBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __DbViewBase["ingestSource"];
+  /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
+  readonly "vendor_consent": __DbViewBase["vendorConsent"];
   /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
   readonly "wedding_agent": __DbViewBase["weddingAgent"];
   /** @deprecated Use `weddingAgentSetting` instead. This alias will be removed in the next major version. */
@@ -413,6 +477,8 @@ export type Tables = __TablesBase & {
   readonly "decision_option": __TablesBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __TablesBase["ingestSource"];
+  /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
+  readonly "vendor_consent": __TablesBase["vendorConsent"];
   /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
   readonly "wedding_agent": __TablesBase["weddingAgent"];
   /** @deprecated Use `weddingAgentSetting` instead. This alias will be removed in the next major version. */

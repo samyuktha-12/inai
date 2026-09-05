@@ -1,6 +1,6 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Timestamp } from 'spacetimedb';
-import { Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, FileText, Image, MapPin, MessageCircle, Milestone, Plus, Store, Upload, Users, WalletCards, X } from 'lucide-react';
+import { BadgeIndianRupee, Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, FileText, Image, Landmark, MapPin, MessageCircle, Milestone, Plus, ShieldCheck, Store, Upload, Users, X } from 'lucide-react';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import { parseImport, type ParsedImport } from '../lib/ingest';
@@ -111,6 +111,77 @@ function AddEvent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void
   </form>;
 }
 
+function rupeesToPaise(value: string): bigint | undefined {
+  const match = value.trim().replace(/,/g, '').match(/^(\d+)(?:\.(\d{1,2}))?$/);
+  if (!match) return undefined;
+  return BigInt(match[1]) * 100n + BigInt((match[2] ?? '').padEnd(2, '0'));
+}
+
+function BudgetWorkspace({ weddingId }: { weddingId: bigint }) {
+  const { identity } = useSpacetimeDB();
+  const [members] = useTable(tables.member);
+  const [budgets] = useTable(tables.budget);
+  const [expenses] = useTable(tables.expense);
+  const [vendors] = useTable(tables.vendor);
+  const [consents] = useTable(tables.vendorConsent);
+  const setBudget = useReducer(reducers.setBudget);
+  const createExpense = useReducer(reducers.createExpense);
+  const confirmExpense = useReducer(reducers.confirmExpense);
+  const createVendor = useReducer(reducers.createVendor);
+  const setVendorBookingState = useReducer(reducers.setVendorBookingState);
+  const setVendorConsent = useReducer(reducers.setVendorConsent);
+  const [showBudgetForm, setShowBudgetForm] = useState(false);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [showVendorForm, setShowVendorForm] = useState(false);
+  const [budgetAmount, setBudgetAmount] = useState('');
+  const [expense, setExpense] = useState({ category: '', label: '', amount: '', vendorId: '', paid: false });
+  const [vendor, setVendor] = useState({ name: '', category: '', note: '' });
+  const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === identity?.toHexString());
+  const canManage = membership?.role === 'couple' || membership?.role === 'planner';
+  const budget = budgets.find(item => item.weddingId === weddingId);
+  const lines = expenses.filter(item => item.weddingId === weddingId).sort((a, b) => Number(b.updatedAt.microsSinceUnixEpoch - a.updatedAt.microsSinceUnixEpoch));
+  const weddingVendors = vendors.filter(item => item.weddingId === weddingId);
+  const confirmedTotal = lines.filter(item => item.state === 'confirmed').reduce((sum, item) => sum + Number(item.amountPaise) / 100, 0);
+  const paidTotal = lines.filter(item => item.state === 'confirmed' && item.paid).reduce((sum, item) => sum + Number(item.amountPaise) / 100, 0);
+  const pendingTotal = lines.filter(item => item.state === 'reported').reduce((sum, item) => sum + Number(item.amountPaise) / 100, 0);
+  const target = budget ? Number(budget.amountPaise) / 100 : 0;
+  const percent = target ? Math.min(100, (confirmedTotal / target) * 100) : 0;
+  const submitBudget = (event: FormEvent) => {
+    event.preventDefault();
+    const amountPaise = rupeesToPaise(budgetAmount);
+    if (!amountPaise) return;
+    setBudget({ weddingId, amountPaise });
+    setShowBudgetForm(false);
+  };
+  const submitExpense = (event: FormEvent) => {
+    event.preventDefault();
+    const amountPaise = rupeesToPaise(expense.amount);
+    if (!amountPaise) return;
+    createExpense({ weddingId, category: expense.category, label: expense.label, amountPaise, paid: expense.paid, vendorId: expense.vendorId ? BigInt(expense.vendorId) : undefined });
+    setExpense({ category: '', label: '', amount: '', vendorId: '', paid: false });
+    setShowExpenseForm(false);
+  };
+  const submitVendor = (event: FormEvent) => {
+    event.preventDefault();
+    createVendor({ weddingId, name: vendor.name, category: vendor.category, note: vendor.note.trim() || undefined });
+    setVendor({ name: '', category: '', note: '' });
+    setShowVendorForm(false);
+  };
+
+  return <section className="budget-workspace">
+    <div className="budget-hero"><div><p className="section-label">Budget</p><h2>{target ? `${fmt.format(confirmedTotal)} planned` : 'Set a budget to begin'}</h2><p>{target ? `${fmt.format(Math.max(0, target - confirmedTotal))} still available from ${fmt.format(target)}` : 'Keep quotes, deposits, and payments in one shared picture.'}</p></div>{canManage && <button type="button" className="outline-action" onClick={() => { setBudgetAmount(target ? String(target) : ''); setShowBudgetForm(value => !value); }}><Landmark size={16}/>{target ? 'Edit budget' : 'Set budget'}</button>}</div>
+    {showBudgetForm && <form className="quick-add-form budget-form" onSubmit={submitBudget}><label>Total budget in rupees<input autoFocus inputMode="decimal" value={budgetAmount} onChange={event => setBudgetAmount(event.target.value)} placeholder="e.g. 2500000" required /></label><p>This is a human-approved planning limit. It does not spend or book anything.</p><button className="primary-button" type="submit">Save budget</button></form>}
+    <div className="budget-stats"><div><span>Planned</span><b>{fmt.format(confirmedTotal)}</b></div><div><span>Paid</span><b>{fmt.format(paidTotal)}</b></div><div><span>Needs review</span><b>{fmt.format(pendingTotal)}</b></div></div>
+    {target > 0 && <><div className="budget-progress"><span style={{ width: `${percent}%` }} /></div><p className={confirmedTotal > target ? 'budget-warning' : 'budget-caption'}>{confirmedTotal > target ? `${fmt.format(confirmedTotal - target)} above the budget` : `${Math.round(percent)}% of the budget planned`}</p></>}
+    <div className="budget-section-heading"><div><p className="section-label">Budget lines</p><h3>Quotes, deposits, and payments</h3></div>{canManage && <button type="button" className="outline-action" onClick={() => setShowExpenseForm(value => !value)}><Plus size={16}/> Add line</button>}</div>
+    {showExpenseForm && <form className="quick-add-form budget-form" onSubmit={submitExpense}><label>What is this for?<input autoFocus value={expense.label} onChange={event => setExpense(value => ({ ...value, label: event.target.value }))} placeholder="e.g. Ceremony decor deposit" required maxLength={200} /></label><div className="budget-form-grid"><label>Category<input value={expense.category} onChange={event => setExpense(value => ({ ...value, category: event.target.value }))} placeholder="e.g. Decor" required maxLength={100} /></label><label>Amount in rupees<input inputMode="decimal" value={expense.amount} onChange={event => setExpense(value => ({ ...value, amount: event.target.value }))} placeholder="e.g. 45000" required /></label></div><label>Vendor <span>optional</span><select value={expense.vendorId} onChange={event => setExpense(value => ({ ...value, vendorId: event.target.value }))}><option value="">No vendor linked</option>{weddingVendors.map(item => <option key={String(item.id)} value={String(item.id)}>{item.name} · {item.category}</option>)}</select></label><label className="checkbox-row"><input type="checkbox" checked={expense.paid} onChange={event => setExpense(value => ({ ...value, paid: event.target.checked }))} /> This amount has been paid</label><p>Adding a line records it for the group. It does not pay, reserve, or contact a vendor.</p><button className="primary-button" type="submit"><BadgeIndianRupee size={17}/> Add budget line</button></form>}
+    <div className="budget-lines">{lines.length ? lines.map(line => { const linkedVendor = line.vendorId === undefined ? undefined : weddingVendors.find(item => item.id === line.vendorId); return <article className={`budget-line ${line.state === 'reported' ? 'reported' : ''}`} key={String(line.id)}><div><b>{line.label}</b><p>{line.category}{linkedVendor ? ` · ${linkedVendor.name}` : ''}</p><small>{line.state === 'reported' ? 'Imported · needs review' : line.paid ? 'Paid' : 'Planned'}</small></div><div className="budget-line-value"><b>{fmt.format(Number(line.amountPaise) / 100)}</b>{line.state === 'reported' && canManage && <span><button type="button" onClick={() => confirmExpense({ expenseId: line.id, accept: true })}>Confirm</button><button type="button" className="text-button" onClick={() => confirmExpense({ expenseId: line.id, accept: false })}>Dismiss</button></span>}</div></article>; }) : <div className="empty-budget"><CircleDollarSign size={22}/><b>No budget lines yet</b><p>Add the first quote or payment yourself, or import vendor quotes from Connect for review.</p></div>}</div>
+    <div className="budget-section-heading vendor-heading"><div><p className="section-label">Vendors</p><h3>Keep selection and consent clear</h3></div>{canManage && <button type="button" className="outline-action" onClick={() => setShowVendorForm(value => !value)}><Plus size={16}/> Add vendor</button>}</div>
+    {showVendorForm && <form className="quick-add-form budget-form" onSubmit={submitVendor}><label>Vendor name<input autoFocus value={vendor.name} onChange={event => setVendor(value => ({ ...value, name: event.target.value }))} placeholder="e.g. Nila Blooms" required maxLength={160} /></label><label>Category<input value={vendor.category} onChange={event => setVendor(value => ({ ...value, category: event.target.value }))} placeholder="e.g. Floral decor" required maxLength={100} /></label><label>Notes <span>optional</span><textarea value={vendor.note} onChange={event => setVendor(value => ({ ...value, note: event.target.value }))} placeholder="What should the family remember about this vendor?" maxLength={1000} /></label><p>Vendor contact details and outreach stay outside this shared plan. Add only the planning context the group needs.</p><button className="primary-button" type="submit"><Store size={17}/> Add vendor</button></form>}
+    <div className="vendor-list">{weddingVendors.length ? weddingVendors.map(item => { const consent = consents.find(row => row.vendorId === item.id); return <article className="vendor-card" key={String(item.id)}><div className="vendor-card-main"><span className="vendor-icon"><Store size={18}/></span><div><b>{item.name}</b><p>{item.category}{item.note ? ` · ${item.note}` : ''}</p></div></div><div className="vendor-card-actions"><label>Status<select value={item.bookingState} disabled={!canManage} onChange={event => setVendorBookingState({ vendorId: item.id, bookingState: event.target.value })}><option value="shortlisted">Shortlisted</option><option value="selected">Selected</option><option value="booked">Booked</option><option value="declined">Not proceeding</option></select></label>{canManage && <button type="button" className={consent?.consented ? 'consent-button allowed' : 'consent-button'} onClick={() => setVendorConsent({ vendorId: item.id, consented: !consent?.consented })}><ShieldCheck size={15}/>{consent?.consented ? 'Draft follow-ups allowed' : 'Allow draft follow-ups'}</button>}<small>{consent?.consented ? 'A person has approved draft outreach. Nothing is sent automatically.' : 'No vendor outreach is permitted.'}</small></div></article>; }) : <div className="empty-budget"><Store size={22}/><b>No vendors yet</b><p>Add the vendors you are considering, then link their quotes and payments above.</p></div>}</div>
+  </section>;
+}
+
 function ContactImport({ weddingId }: { weddingId: bigint }) {
   const requestIngest = useReducer(reducers.requestIngest);
   const [fileName, setFileName] = useState('');
@@ -145,7 +216,7 @@ function AddCustomAgent({ weddingId, onDone }: { weddingId: bigint; onDone: () =
 function SourceUpload({ weddingId, source, onClose }: { weddingId: bigint; source: typeof sources[number]; onClose: () => void }) {
   const requestIngest = useReducer(reducers.requestIngest);
   const createEvent = useReducer(reducers.createEvent);
-  const createExpense = useReducer(reducers.createExpense);
+  const recordImportedExpense = useReducer(reducers.recordImportedExpense);
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedImport | null>(null);
   const [error, setError] = useState('');
@@ -160,7 +231,7 @@ function SourceUpload({ weddingId, source, onClose }: { weddingId: bigint; sourc
     setSaving(true);
     requestIngest({ weddingId, kind: source.kind });
     parsed.events.forEach(event => createEvent({ weddingId, title: event.title, venue: event.venue, startsAt: event.startsAt ? Timestamp.fromDate(event.startsAt) : undefined, source: source.kind, confidence: event.confidence }));
-    parsed.expenses.forEach(expense => createExpense({ weddingId, ...expense, source: source.kind }));
+    parsed.expenses.forEach(expense => recordImportedExpense({ weddingId, ...expense, source: source.kind }));
     onClose();
   };
   const accept = source.kind === 'calendar' ? '.ics,text/calendar' : source.kind === 'whatsapp' ? '.txt,text/plain' : source.kind === 'guests' ? '.csv,.tsv,text/csv,text/tab-separated-values' : 'image/*,.txt,.csv,.ics,text/plain,text/csv,text/calendar';
@@ -174,7 +245,6 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
   const [weddingAgents] = useTable(tables.weddingAgent);
   const [agentSettings] = useTable(tables.weddingAgentSetting);
   const [customAgents] = useTable(tables.customWeddingAgent);
-  const requestIngest = useReducer(reducers.requestIngest);
   const setWeddingAgent = useReducer(reducers.setWeddingAgent);
   const setWeddingAgentInstructions = useReducer(reducers.setWeddingAgentInstructions);
   const [editingAgent, setEditingAgent] = useState<string | null>(null);
@@ -210,12 +280,8 @@ export default function WeddingTab({ weddingId }: { weddingId: bigint }) {
   const [addingEvent, setAddingEvent] = useState(false);
   const [weddings] = useTable(tables.wedding);
   const [events] = useTable(tables.event);
-  const [expenses] = useTable(tables.expense);
   const wedding = weddings.find(row => row.id === weddingId);
-  const weddingExpenses = expenses.filter(row => row.weddingId === weddingId);
   const weddingEvents = events.filter(row => row.weddingId === weddingId);
-  const total = useMemo(() => weddingExpenses.reduce((sum, row) => sum + Number(row.amountPaise) / 100, 0), [weddingExpenses]);
-  const reported = weddingExpenses.filter(row => row.state === 'reported').length;
   const items: Record<Exclude<View, 'budget'>, React.ReactNode> = {
     calendar: <CalendarItinerary wedding={wedding} events={weddingEvents} />,
     events: <><div className="view-action-heading"><p className="section-label">Events</p><button type="button" className="outline-action" onClick={() => setAddingEvent(true)}><Plus size={16}/> Add event</button></div>{addingEvent && <AddEvent weddingId={weddingId} onDone={() => setAddingEvent(false)} />}{weddingEvents.length ? weddingEvents.map(event => <div className={`inai-card ${event.state === 'reported' ? 'reported' : ''}`} key={String(event.id)}><span className="card-icon"><CalendarDays size={21}/></span><span className="card-content"><b>{event.title}</b><span>{event.venue ?? 'Venue to confirm'}{event.state === 'reported' ? ' · needs confirmation' : ''}</span></span></div>) : !addingEvent && <div className="panel"><CalendarDays color="#087d6b"/><h2>Start with the events</h2><p>Add an event now or bring in a calendar export. Your group reviews every new detail.</p></div>}</>,
@@ -223,5 +289,5 @@ export default function WeddingTab({ weddingId }: { weddingId: bigint }) {
     mood: <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>,
     connect: <ConnectWedding weddingId={weddingId}/>,
   };
-  return <div><p className="eyebrow">{wedding ? `${wedding.city} · ${wedding.dateLabel}` : 'Your shared plan'}</p><h1 className="headline">The wedding</h1><div className="wedding-tabs">{([['calendar', 'Calendar'], ['events', 'Events'], ['budget', 'Budget'], ['guests', 'Guests'], ['mood', 'Mood'], ['connect', 'Connect']] as const).map(([key, label]) => <button className={view === key ? 'active' : ''} key={key} onClick={() => setView(key)}>{label}</button>)}</div>{view === 'budget' ? <><div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 26 }}><span className="card-icon" style={{ width: 38, height: 38, flexBasis: 38, borderRadius: 12 }}><WalletCards size={19}/></span><p className="section-label" style={{ margin: 0 }}>Spend tracked</p></div><div className="budget-number">{fmt.format(total)}</div><p className="budget-copy">{weddingExpenses.length ? (reported ? `${reported} line${reported === 1 ? '' : 's'} to confirm` : 'Every imported line is confirmed') : 'Add quotes to start your budget'}</p><div className="budget-bar" aria-label="Budget spend currently tracked"><span style={{ width: total ? '100%' : '0%' }}/></div>{reported > 0 && <p className="notice">Imported amounts stay clearly marked until someone confirms them.</p>}<div className="panel" style={{ marginTop: 24 }}><CircleDollarSign color="#087d6b"/><h2>{wedding ? `${wedding.brideName} & ${wedding.groomName}` : 'Your shared budget'}</h2><p>{wedding ? 'Quotes, deposits and spending appear here as a clean shared picture.' : 'Budget lines from quotes will be reviewed here.'}</p></div></> : items[view]}</div>;
+  return <div><p className="eyebrow">{wedding ? `${wedding.city} · ${wedding.dateLabel}` : 'Your shared plan'}</p><h1 className="headline">The wedding</h1><div className="wedding-tabs">{([['calendar', 'Calendar'], ['events', 'Events'], ['budget', 'Budget'], ['guests', 'Guests'], ['mood', 'Mood'], ['connect', 'Connect']] as const).map(([key, label]) => <button className={view === key ? 'active' : ''} key={key} onClick={() => setView(key)}>{label}</button>)}</div>{view === 'budget' ? <BudgetWorkspace weddingId={weddingId} /> : items[view]}</div>;
 }

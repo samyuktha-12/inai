@@ -29,6 +29,7 @@ export default function TodayTab({ onNavigate, onOpenChat, weddingId }: { onNavi
   const [votes] = useTable(tables.vote);
   const [participants] = useTable(tables.participant);
   const [events] = useTable(tables.event);
+  const [budgets] = useTable(tables.budget);
   const [expenses] = useTable(tables.expense);
   const [ingestSources] = useTable(tables.ingestSource);
   const [messages] = useTable(tables.weddingMessage);
@@ -45,8 +46,10 @@ export default function TodayTab({ onNavigate, onOpenChat, weddingId }: { onNavi
   const needsMyVote = openDecisions.filter(decision => !votedOn.has(decision.id));
   const needsMyLock = openDecisions.filter(decision => decision.deciderIdentity?.toHexString() === myHex);
   const weddingEvents = events.filter(event => event.weddingId === weddingId).sort((a, b) => Number((a.startsAt?.microsSinceUnixEpoch ?? 0n) - (b.startsAt?.microsSinceUnixEpoch ?? 0n))).slice(0, 3);
-  const weddingExpenses = expenses.filter(expense => expense.weddingId === weddingId);
+  const weddingExpenses = expenses.filter(expense => expense.weddingId === weddingId && expense.state === 'confirmed');
   const spend = weddingExpenses.reduce((sum, expense) => sum + Number(expense.amountPaise) / 100, 0);
+  const budget = budgets.find(item => item.weddingId === weddingId);
+  const budgetTarget = budget ? Number(budget.amountPaise) / 100 : 0;
   const exactDate = eventDate(wedding?.dateLabel);
   const countdown = daysUntil(exactDate);
   const sourceCount = ingestSources.filter(source => source.weddingId === weddingId && source.status === 'awaiting_upload').length;
@@ -62,7 +65,7 @@ export default function TodayTab({ onNavigate, onOpenChat, weddingId }: { onNavi
       <div className="dashboard-welcome"><span className="dashboard-mark" aria-hidden /><p>{exactDate ? `Wedding day, ${exactDate.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}` : wedding?.dateLabel ?? 'Wedding date to confirm'}</p><h1>Good morning, {me?.name?.split(' ')[0] ?? 'there'}</h1></div>
       <div className="countdown-cards"><div><b>{countdown === undefined ? '—' : Math.max(0, countdown)}</b><span>days</span></div><div><b>{weddingEvents.length}</b><span>events</span></div><div><b>{weddingTasks.length}</b><span>in the plan</span></div></div>
     </section>
-    <section className="dashboard-metrics" aria-label="Wedding metrics"><div><span>Open work</span><b>{weddingTasks.filter(task => !task.done).length}</b><small>{myOpenTasks.length ? `${myOpenTasks.length} assigned to you` : 'Nothing assigned to you'}</small></div><div><span>Budget tracked</span><b>{fmt.format(spend)}</b><small>{weddingExpenses.length ? `${weddingExpenses.length} lines recorded` : 'No quotes added yet'}</small></div><div><span>Open decisions</span><b>{openDecisions.length}</b><small>{needsMyLock.length ? `${needsMyLock.length} waiting on you` : needsMyVote.length ? `${needsMyVote.length} need your vote` : 'All caught up'}</small></div><div><span>Sources waiting</span><b>{sourceCount}</b><small>Exports and quotes to add</small></div></section>
+    <section className="dashboard-metrics" aria-label="Wedding metrics"><div><span>Open work</span><b>{weddingTasks.filter(task => !task.done).length}</b><small>{myOpenTasks.length ? `${myOpenTasks.length} assigned to you` : 'Nothing assigned to you'}</small></div><div><span>Budget planned</span><b>{fmt.format(spend)}</b><small>{budgetTarget ? `${fmt.format(Math.max(0, budgetTarget - spend))} remaining` : weddingExpenses.length ? `${weddingExpenses.length} confirmed lines` : 'Set a budget in Wedding'}</small></div><div><span>Open decisions</span><b>{openDecisions.length}</b><small>{needsMyLock.length ? `${needsMyLock.length} waiting on you` : needsMyVote.length ? `${needsMyVote.length} need your vote` : 'All caught up'}</small></div><div><span>Sources waiting</span><b>{sourceCount}</b><small>Exports and quotes to add</small></div></section>
     <section className="dashboard-workspace">
       <div className="dashboard-column"><div className="dashboard-section-heading"><h2>Your turn</h2><p>Only the things you can move forward.</p></div>{actionItems.length ? <div className="action-list">{actionItems.map(item => <button className="dashboard-action" type="button" key={String(item.key)} onClick={item.onClick}><span className={`action-mark ${item.tone}`} /><span><b>{item.title}</b><small>{item.detail}</small></span></button>)}</div> : <div className="dashboard-empty"><CheckCircle2 size={22}/><p>You are clear for now. New work will appear here when it needs you.</p></div>}</div>
       <div className="dashboard-column"><div className="dashboard-section-heading"><h2>The next days</h2><p>What is coming up across the wedding.</p></div><div className="event-list">{weddingEvents.length ? weddingEvents.map(event => <article key={String(event.id)}><time>{shortDate(event.startsAt)}</time><span><b>{event.title}</b><p>{event.venue ?? 'Venue to confirm'}{event.state === 'reported' ? ' · draft' : ''}</p></span></article>) : <div className="dashboard-empty"><CalendarDays size={22}/><p>Add a calendar export or event details to see the schedule here.</p></div>}</div><div className="since-yesterday"><b>Since the last update</b>{chat.length ? chat.slice(0, 3).map(item => { const sender = participants.find(person => person.identity.equals(item.sentBy)); return <p key={String(item.id)}><strong>{sender?.name ?? 'Wedding member'}</strong> {item.body}</p>; }) : <p>No updates yet. Your group chat will keep the family in the loop.</p>}</div></div>

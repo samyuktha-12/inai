@@ -10,17 +10,11 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  id: __t.u64().primaryKey(),
-  weddingId: __t.u64().name("wedding_id"),
+export default {
+  weddingId: __t.u64(),
   category: __t.string(),
   label: __t.string(),
-  amountPaise: __t.i64().name("amount_paise"),
-  paid: __t.bool(),
-  vendorId: __t.option(__t.u64()).name("vendor_id"),
-  state: __t.string(),
+  amountPaise: __t.i64(),
   source: __t.string(),
-  updatedBy: __t.identity().name("updated_by"),
   confidence: __t.f32(),
-  updatedAt: __t.timestamp().name("updated_at"),
-});
+};

@@ -792,6 +792,21 @@ export const createExpense = spacetimedb.reducer(
   }
 );
 
+// The browser/worker parses the file; this deterministic reducer only records
+// its proposed facts with provenance. Imported amounts never become confirmed
+// state just because a parser found them.
+export const recordImportedExpense = spacetimedb.reducer(
+  { weddingId: t.u64(), category: t.string(), label: t.string(), amountPaise: t.i64(), source: t.string(), confidence: t.f32() },
+  (ctx, { weddingId, category, label, amountPaise, source, confidence }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add a budget line');
+    const expenseCategory = category.trim();
+    const expenseLabel = label.trim();
+    if (!expenseCategory || expenseCategory.length > 100 || !expenseLabel || expenseLabel.length > 200 || amountPaise <= 0n) throw new SenderError('enter a category, description, and amount');
+    if (!INGEST_KINDS.includes(source as IngestKind) || confidence < 0 || confidence > 1) throw new SenderError('invalid imported expense');
+    ctx.db.expense.insert({ id: 0n, weddingId, category: expenseCategory, label: expenseLabel, amountPaise, paid: false, vendorId: undefined, state: 'reported', source, updatedBy: ctx.sender, confidence, updatedAt: ctx.timestamp });
+  }
+);
+
 export const confirmExpense = spacetimedb.reducer(
   { expenseId: t.u64(), accept: t.bool() },
   (ctx, { expenseId, accept }) => {
@@ -801,22 +816,6 @@ export const confirmExpense = spacetimedb.reducer(
     // Rejection does not destroy imported evidence. It remains traceable but
     // cannot be treated as a confirmed budget fact.
     ctx.db.expense.id.update({ ...existing, state: accept ? 'confirmed' : 'unknown', updatedBy: ctx.sender, confidence: accept ? 1 : 0, updatedAt: ctx.timestamp });
-  }
-);
-
-// Parsed quote amounts are drafts, just like parsed event details. A person
-// must still review them before an amount can be treated as settled.
-export const createExpense = spacetimedb.reducer(
-  { weddingId: t.u64(), category: t.string(), label: t.string(), amountPaise: t.i64(), source: t.string(), confidence: t.f32() },
-  (ctx, { weddingId, category, label, amountPaise, source, confidence }) => {
-    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add an expense');
-    if (!['manual', ...INGEST_KINDS].includes(source)) throw new SenderError('invalid expense source');
-    if (!label.trim() || label.trim().length > 200 || category.trim().length > 80) throw new SenderError('invalid expense details');
-    if (amountPaise < 0n || confidence < 0 || confidence > 1) throw new SenderError('invalid expense amount or confidence');
-    ctx.db.expense.insert({
-      id: 0n, weddingId, category: category.trim() || 'Other', label: label.trim(), amountPaise, paid: false,
-      state: 'reported', source, updatedBy: ctx.sender, confidence, updatedAt: ctx.timestamp,
-    });
   }
 );
 

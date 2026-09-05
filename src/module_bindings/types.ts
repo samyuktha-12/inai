@@ -10,6 +10,18 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const Budget = __t.object("Budget", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  amountPaise: __t.i64(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type Budget = __Infer<typeof Budget>;
+
 export const CoordinatorRequest = __t.object("CoordinatorRequest", {
   id: __t.u64(),
   weddingId: __t.u64(),
@@ -82,6 +94,7 @@ export const Expense = __t.object("Expense", {
   label: __t.string(),
   amountPaise: __t.i64(),
   paid: __t.bool(),
+  vendorId: __t.option(__t.u64()),
   state: __t.string(),
   source: __t.string(),
   updatedBy: __t.identity(),
@@ -148,6 +161,34 @@ export const Task = __t.object("Task", {
   weddingId: __t.option(__t.u64()),
 });
 export type Task = __Infer<typeof Task>;
+
+export const Vendor = __t.object("Vendor", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  name: __t.string(),
+  category: __t.string(),
+  bookingState: __t.string(),
+  note: __t.option(__t.string()),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type Vendor = __Infer<typeof Vendor>;
+
+export const VendorConsent = __t.object("VendorConsent", {
+  id: __t.u64(),
+  vendorId: __t.u64(),
+  weddingId: __t.u64(),
+  consented: __t.bool(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type VendorConsent = __Infer<typeof VendorConsent>;
 
 export const Vote = __t.object("Vote", {
   id: __t.u64(),
