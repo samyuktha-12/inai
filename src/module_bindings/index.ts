@@ -52,6 +52,7 @@ import LockDecisionReducer from "./lock_decision_reducer";
 import RecordImportedExpenseReducer from "./record_imported_expense_reducer";
 import RequestCoordinatorActionReducer from "./request_coordinator_action_reducer";
 import RequestIngestReducer from "./request_ingest_reducer";
+import SeedPriyaRahulDemoReducer from "./seed_priya_rahul_demo_reducer";
 import SendWeddingMessageReducer from "./send_wedding_message_reducer";
 import SetBudgetReducer from "./set_budget_reducer";
 import SetDeciderReducer from "./set_decider_reducer";
@@ -364,6 +365,7 @@ const reducersSchema = __reducers(
   __reducerSchema("record_imported_expense", RecordImportedExpenseReducer),
   __reducerSchema("request_coordinator_action", RequestCoordinatorActionReducer),
   __reducerSchema("request_ingest", RequestIngestReducer),
+  __reducerSchema("seed_priya_rahul_demo", SeedPriyaRahulDemoReducer),
   __reducerSchema("send_wedding_message", SendWeddingMessageReducer),
   __reducerSchema("set_budget", SetBudgetReducer),
   __reducerSchema("set_decider", SetDeciderReducer),

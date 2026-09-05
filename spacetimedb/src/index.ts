@@ -142,12 +142,13 @@ const expense = table(
     label: t.string(),
     amountPaise: t.i64(),
     paid: t.bool(),
-    vendorId: t.option(t.u64()).default(undefined),
     state: t.string().default('reported'),
     source: t.string().default('manual'),
     updatedBy: t.identity(),
     confidence: t.f32().default(1),
     updatedAt: t.timestamp(),
+    // Appended for safe schema migration; table field order is persistent.
+    vendorId: t.option(t.u64()).default(undefined),
   }
 );
 
@@ -698,6 +699,55 @@ export const createCustomWeddingAgent = spacetimedb.reducer(
     });
   }
 );
+
+// A deliberately narrow, idempotent fixture for the one public demo wedding.
+// It is unavailable to normal wedding members and does not process user data.
+export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
+  const isDemoAppAdmin = ctx.sender.toHexString() === 'c20062ae5d5c3fba6488abffb4db96a9cc793f9300697fbba5fee78670432648';
+  if (!isDemoAppAdmin) throw new SenderError('only the demo app administrator can load demo data');
+  const weddingId = 1n;
+  if (!ctx.db.wedding.id.find(weddingId)) throw new SenderError('the Priya and Rahul demo wedding was not found');
+  const caller = ctx.db.participant.identity.find(ctx.sender);
+  const priyaIdentity = [...ctx.db.participant.iter()].find(person => person.name === 'Priya')?.identity;
+  const rahulIdentity = [...ctx.db.participant.iter()].find(person => person.name === 'Rahul')?.identity;
+  if (!caller || !priyaIdentity || !rahulIdentity) throw new SenderError('demo participants were not found');
+  const has = (table: Iterable<{ weddingId: bigint; title?: string; label?: string }>, value: string) => [...table].some(row => row.weddingId === weddingId && (row.title === value || row.label === value));
+  const addEvent = (title: string, venue: string) => {
+    if (has(ctx.db.event.iter(), title)) return;
+    ctx.db.event.insert({ id: 0n, weddingId, title, startsAt: ctx.timestamp, venue, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  };
+  addEvent('Mehendi evening', 'The Leela Palace lawn');
+  addEvent('Sangeet night', 'The Leela Palace ballroom');
+  addEvent('Wedding ceremony', 'Kapaleeshwarar Temple courtyard');
+  for (const [category, label, amountPaise, paid] of [
+    ['Venue', 'Leela Palace ceremony spaces', 8500000n, true],
+    ['Catering', 'South Indian lunch for 240 guests', 6240000n, false],
+    ['Decor', 'Jasmine and marigold florals', 2850000n, false],
+    ['Photography', 'Two-day photo and film team', 1900000n, true],
+  ] as const) {
+    if ([...ctx.db.expense.iter()].some(item => item.weddingId === weddingId && item.label === label)) continue;
+    ctx.db.expense.insert({ id: 0n, weddingId, category, label, amountPaise, paid, vendorId: undefined, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  for (const [title, ownerIdentity] of [
+    ['Share the final guest list with catering', priyaIdentity],
+    ['Confirm the sangeet song list', rahulIdentity],
+    ['Review the florist’s jasmine samples', priyaIdentity],
+  ] as const) {
+    if ([...ctx.db.task.iter()].some(item => item.weddingId === weddingId && item.title === title)) continue;
+    ctx.db.task.insert({ id: 0n, weddingId, title, ownerIdentity, done: false, createdAt: ctx.timestamp, dueAt: ctx.timestamp, state: 'confirmed', source: 'manual', reportedBy: undefined, confidence: undefined, reportedAt: undefined });
+  }
+  for (const [body, sentBy] of [
+    ['The floral samples are in. I have put the three options on Decide for everyone to see.', priyaIdentity],
+    ['I will send the first guest list to catering after we review the family additions tonight.', rahulIdentity],
+    ['The Leela has held the ballroom for the sangeet. We still need to confirm the menu.', priyaIdentity],
+  ] as const) {
+    if ([...ctx.db.wedding_message.iter()].some(message => message.weddingId === weddingId && message.body === body)) continue;
+    ctx.db.wedding_message.insert({ id: 0n, weddingId, body, sentBy, sentAt: ctx.timestamp, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  if (![...ctx.db.decision.iter()].some(decision => decision.weddingId === weddingId && decision.title === 'Which welcome drink should guests receive?')) {
+    seedDecision(ctx, weddingId, 'Which welcome drink should guests receive?', ['Tender coconut cooler', 'Rose milk', 'Filter coffee bar']);
+  }
+});
 
 export const createEvent = spacetimedb.reducer(
   { weddingId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()), source: t.string(), confidence: t.f32() },
