@@ -34,6 +34,15 @@ const eventTemplates = [
 
 type View = 'calendar' | 'events' | 'budget' | 'guests' | 'mood' | 'connect';
 
+const weddingSections = [
+  { key: 'calendar', label: 'Timeline', hint: 'See the days ahead', icon: CalendarDays },
+  { key: 'events', label: 'Events', hint: 'Check what is ready', icon: ClipboardCheck },
+  { key: 'budget', label: 'Budget', hint: 'Track money and vendors', icon: BadgeIndianRupee },
+  { key: 'guests', label: 'People', hint: 'Bring in guest details', icon: Users },
+  { key: 'mood', label: 'Ideas', hint: 'Keep inspiration together', icon: Image },
+  { key: 'connect', label: 'Set up', hint: 'Sources and assistants', icon: Bot },
+] as const;
+
 const monthFormatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
 const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
 const dateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
@@ -358,5 +367,7 @@ export default function WeddingTab({ weddingId }: { weddingId: bigint }) {
     mood: <MoodBoard weddingId={weddingId} />,
     connect: <ConnectWedding weddingId={weddingId}/>,
   };
-  return <div><p className="eyebrow">{wedding ? `${wedding.city} · ${wedding.dateLabel}` : 'Your shared plan'}</p><h1 className="headline">The wedding</h1><div className="wedding-tabs">{([['calendar', 'Calendar'], ['events', 'Events'], ['budget', 'Budget'], ['guests', 'Guests'], ['mood', 'Mood'], ['connect', 'Connect']] as const).map(([key, label]) => <button className={view === key ? 'active' : ''} key={key} onClick={() => setView(key)}>{label}</button>)}</div>{view === 'budget' ? <BudgetWorkspace weddingId={weddingId} /> : items[view]}</div>;
+  const selected = weddingSections.find(section => section.key === view)!;
+  const SectionIcon = selected.icon;
+  return <div className="wedding-workspace"><header className="wedding-workspace-header"><p className="eyebrow">{wedding ? `${wedding.brideName} & ${wedding.groomName} · ${wedding.city}` : 'Your shared plan'}</p><h1 className="headline">Plan the wedding, together</h1><p>Start with what matters today. Every update stays visible to the people planning with you.</p></header><nav className="wedding-section-nav" aria-label="Wedding planning sections">{weddingSections.map(section => { const Icon = section.icon; return <button className={view === section.key ? 'active' : ''} key={section.key} onClick={() => setView(section.key)} aria-current={view === section.key ? 'page' : undefined}><Icon size={18}/><span><b>{section.label}</b><small>{section.hint}</small></span></button>; })}</nav><div className="wedding-section-context"><SectionIcon size={17}/><div><b>{selected.label}</b><span>{selected.hint}</span></div></div>{view === 'budget' ? <BudgetWorkspace weddingId={weddingId} /> : items[view]}</div>;
 }
