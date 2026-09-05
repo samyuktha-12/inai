@@ -23,4 +23,5 @@ export default __t.row({
   profileState: __t.string().name("profile_state"),
   profileSource: __t.string().name("profile_source"),
   profileUpdatedAt: __t.option(__t.timestamp()).name("profile_updated_at"),
+  preferredLanguage: __t.string().name("preferred_language"),
 });

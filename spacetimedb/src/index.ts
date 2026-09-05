@@ -46,6 +46,10 @@ const participant = table(
     profileState: t.string().default('unknown'),
     profileSource: t.string().default('manual'),
     profileUpdatedAt: t.option(t.timestamp()).default(undefined),
+    // Keep this field in sync with the deployed schema. Client bindings are
+    // generated from this definition; omitting an appended deployed field
+    // makes the client decoder read past the participant row payload.
+    preferredLanguage: t.string().default('English'),
   }
 );
 
@@ -335,6 +339,7 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
       profileState: 'unknown',
       profileSource: 'manual',
       profileUpdatedAt: undefined,
+      preferredLanguage: 'English',
       phone: undefined,
     });
   }
@@ -366,6 +371,7 @@ export const setName = spacetimedb.reducer(
         profileState: 'unknown',
         profileSource: 'manual',
         profileUpdatedAt: undefined,
+        preferredLanguage: 'English',
         phone: undefined,
       });
     }

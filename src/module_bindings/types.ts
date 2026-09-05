@@ -96,6 +96,7 @@ export const Participant = __t.object("Participant", {
   profileState: __t.string(),
   profileSource: __t.string(),
   profileUpdatedAt: __t.option(__t.timestamp()),
+  preferredLanguage: __t.string(),
 });
 export type Participant = __Infer<typeof Participant>;
 
