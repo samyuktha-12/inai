@@ -210,6 +210,30 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
         >
           <ArrowLeft size={16} /> Inai
         </button>
+        <nav className="inai-nav" aria-label="Primary navigation">
+          <div className="inai-nav-inner">
+            {(
+              [
+                ['today', 'Today', Home],
+                ['decide', 'Decide', Vote],
+                ['wedding', 'Wedding', MapPin],
+              ] as [Tab, string, typeof Home][]
+            ).map(([key, label, Icon]) => {
+              const active = tab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTab(key)}
+                  className={active ? 'active' : ''}
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span
             style={{
@@ -247,31 +271,6 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
         {tab === 'decide' && <DecisionBoard weddingId={weddingId} />}
         {tab === 'wedding' && <WeddingTab weddingId={weddingId} />}
       </main>
-
-      <nav className="inai-nav">
-        <div className="inai-nav-inner">
-          {(
-            [
-              ['today', 'Today', Home],
-              ['decide', 'Decide', Vote],
-              ['wedding', 'Wedding', MapPin],
-            ] as [Tab, string, typeof Home][]
-          ).map(([key, label, Icon]) => {
-            const active = tab === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={active ? 'active' : ''}
-              >
-                <Icon size={20} />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
 
       {peopleOpen && <PeoplePanel weddingId={weddingId} onClose={() => setPeopleOpen(false)} />}
     </div>

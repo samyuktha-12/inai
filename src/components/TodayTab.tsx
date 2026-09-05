@@ -1,244 +1,78 @@
 import { useMemo, useState } from 'react';
 import { Timestamp } from 'spacetimedb';
-import { tables, reducers } from '../module_bindings';
-import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
-import { colors, fonts } from '../theme';
-import { CheckCircle2, MessageCircle, Mic, Send } from 'lucide-react';
+import { reducers, tables } from '../module_bindings';
+import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
+import { CalendarDays, CheckCircle2, MessageCircle, Send } from 'lucide-react';
 
-function formatDue(dueAt?: Timestamp) {
-  if (!dueAt) return null;
-  const date = new Date(Number(dueAt.microsSinceUnixEpoch / 1000n));
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+
+function eventDate(dateLabel?: string) {
+  if (!dateLabel) return undefined;
+  const value = new Date(dateLabel);
+  return Number.isNaN(value.getTime()) ? undefined : value;
 }
 
-const cardStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  background: '#FFFFFF',
-  border: `1px solid ${colors.hairline}`,
-  borderRadius: 14,
-  padding: '14px 16px',
-};
-
-function weddingCountdown(dateLabel?: string) {
-  if (!dateLabel) return null;
-  const eventDate = new Date(dateLabel);
-  if (Number.isNaN(eventDate.getTime())) return null;
-  return Math.ceil((eventDate.setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
+function daysUntil(date?: Date) {
+  if (!date) return undefined;
+  return Math.ceil((date.setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
 }
 
-export default function TodayTab({
-  onNavigate,
-  weddingId,
-}: {
-  onNavigate: (tab: 'decide' | 'tasks') => void;
-  weddingId: bigint;
-}) {
+function shortDate(value?: Timestamp) {
+  if (!value) return 'Date to confirm';
+  return new Date(Number(value.microsSinceUnixEpoch / 1000n)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+export default function TodayTab({ onNavigate, weddingId }: { onNavigate: (tab: 'decide' | 'tasks') => void; weddingId: bigint }) {
   const { identity } = useSpacetimeDB();
   const [tasks] = useTable(tables.task);
   const [decisions] = useTable(tables.decision);
   const [votes] = useTable(tables.vote);
   const [participants] = useTable(tables.participant);
+  const [events] = useTable(tables.event);
+  const [expenses] = useTable(tables.expense);
   const [ingestSources] = useTable(tables.ingestSource);
-  const [weddingAgents] = useTable(tables.weddingAgent);
   const [messages] = useTable(tables.weddingMessage);
   const [weddings] = useTable(tables.wedding);
   const toggleTask = useReducer(reducers.toggleTask);
   const sendWeddingMessage = useReducer(reducers.sendWeddingMessage);
   const [message, setMessage] = useState('');
-
   const myHex = identity?.toHexString();
-  const me = participants.find(p => p.identity.toHexString() === myHex);
-
-  const myOpenTasks = tasks.filter(
-    t => t.weddingId === weddingId && t.ownerIdentity.toHexString() === myHex && !t.done
-  );
-
-  const openDecisions = decisions.filter(d => d.weddingId === weddingId && d.lockedOptionId === undefined);
-  const myVotedIds = new Set(
-    votes
-      .filter(v => v.voterIdentity.toHexString() === myHex)
-      .map(v => v.decisionId)
-  );
-  const needsMyVote = openDecisions.filter(d => !myVotedIds.has(d.id));
-  const needsMyLock = openDecisions.filter(
-    d => d.deciderIdentity?.toHexString() === myHex
-  );
-
-  const totalCount = myOpenTasks.length + needsMyVote.length + needsMyLock.length;
+  const me = participants.find(person => person.identity.toHexString() === myHex);
   const wedding = weddings.find(row => row.id === weddingId);
-  const daysToWedding = weddingCountdown(wedding?.dateLabel);
   const weddingTasks = tasks.filter(task => task.weddingId === weddingId);
-  const sourcesWaiting = ingestSources.filter(source => source.weddingId === weddingId && source.status === 'awaiting_upload').length;
-  const assistantsActive = weddingAgents.filter(agent => agent.weddingId === weddingId && agent.enabled).length;
-  const chat = useMemo(() => messages.filter(item => item.weddingId === weddingId).sort((a, b) => Number(a.sentAt.microsSinceUnixEpoch - b.sentAt.microsSinceUnixEpoch)).slice(-40), [messages, weddingId]);
+  const myOpenTasks = weddingTasks.filter(task => task.ownerIdentity.toHexString() === myHex && !task.done);
+  const openDecisions = decisions.filter(decision => decision.weddingId === weddingId && decision.lockedOptionId === undefined);
+  const votedOn = new Set(votes.filter(vote => vote.voterIdentity.toHexString() === myHex).map(vote => vote.decisionId));
+  const needsMyVote = openDecisions.filter(decision => !votedOn.has(decision.id));
+  const needsMyLock = openDecisions.filter(decision => decision.deciderIdentity?.toHexString() === myHex);
+  const weddingEvents = events.filter(event => event.weddingId === weddingId).sort((a, b) => Number((a.startsAt?.microsSinceUnixEpoch ?? 0n) - (b.startsAt?.microsSinceUnixEpoch ?? 0n))).slice(0, 3);
+  const weddingExpenses = expenses.filter(expense => expense.weddingId === weddingId);
+  const spend = weddingExpenses.reduce((sum, expense) => sum + Number(expense.amountPaise) / 100, 0);
+  const exactDate = eventDate(wedding?.dateLabel);
+  const countdown = daysUntil(exactDate);
+  const sourceCount = ingestSources.filter(source => source.weddingId === weddingId && source.status === 'awaiting_upload').length;
+  const chat = useMemo(() => messages.filter(item => item.weddingId === weddingId).sort((a, b) => Number(b.sentAt.microsSinceUnixEpoch - a.sentAt.microsSinceUnixEpoch)), [messages, weddingId]);
+  const actionItems = [
+    ...needsMyLock.map(item => ({ key: `lock-${item.id}`, tone: 'marigold', title: `Make the final call: ${item.title}`, detail: 'This decision is waiting for you', onClick: () => onNavigate('decide') })),
+    ...needsMyVote.map(item => ({ key: `vote-${item.id}`, tone: 'jade', title: `Vote on ${item.title}`, detail: 'Your input is needed', onClick: () => onNavigate('decide') })),
+    ...myOpenTasks.map(item => ({ key: `task-${item.id}`, tone: 'mist', title: item.title, detail: `Due ${shortDate(item.dueAt)}`, onClick: () => toggleTask({ taskId: item.id }) })),
+  ].slice(0, 3);
   const postMessage = () => {
     if (!message.trim()) return;
     sendWeddingMessage({ weddingId, body: message.trim() });
     setMessage('');
   };
 
-  return (
-    <div>
-      <p className="eyebrow">Good to see you, {me?.name ?? 'there'}</p>
-      <h1 className="headline">
-        {totalCount === 0
-          ? 'All caught up'
-          : `${totalCount} thing${totalCount === 1 ? '' : 's'} need${
-              totalCount === 1 ? 's' : ''
-            } `}<em>{totalCount === 0 ? '' : 'you'}</em>
-      </h1>
-
-      <div className="today-summary" aria-label={`${totalCount} items need your attention`}>
-        <p>
-          <b style={{ display: 'block', color: '#162B2A', fontSize: 16, marginBottom: 3 }}>Your wedding, in one view</b>
-          {totalCount ? 'Start with the one thing you can move forward today.' : 'You have a clear day. Inai will let you know when something changes.'}
-        </p>
-        <div className="today-count"><span>{totalCount || <CheckCircle2 size={26} />}</span></div>
-      </div>
-
-      <section className="wedding-dashboard" aria-label="Wedding dashboard">
-        <div className="dashboard-heading"><p className="section-label">At a glance</p><span>{daysToWedding === null ? 'Set an exact date for a countdown' : daysToWedding < 0 ? 'Wedding day has passed' : `${daysToWedding} days to go`}</span></div>
-        <div className="metric-grid"><div><b>{daysToWedding === null ? '—' : Math.max(0, daysToWedding)}</b><span>days to wedding</span></div><div><b>{weddingTasks.filter(task => !task.done).length}</b><span>open tasks</span></div><div><b>{openDecisions.length}</b><span>open decisions</span></div><div><b>{sourcesWaiting + assistantsActive}</b><span>sources & helpers</span></div></div>
-      </section>
-
-      <button type="button" className="voice-card" onClick={() => alert('Voice updates will be available when the voice worker is connected.')}>
-        <span className="voice-ring"><Mic size={27}/></span><strong>Ask or update by voice</strong><span>Speak in Tamil, Hindi or English</span>
-      </button>
-
-      {needsMyLock.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
-          <p className="section-label">You decide</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {needsMyLock.map(d => (
-              <button
-                key={String(d.id)}
-                type="button"
-                onClick={() => onNavigate('decide')}
-                style={{ ...cardStyle, width: '100%', cursor: 'pointer', textAlign: 'left' }}
-              >
-                <span
-                  style={{
-                    width: 36,
-                    height: 36,
-                    flex: 'none',
-                    borderRadius: 10,
-                    background: '#FBEFD8',
-                    color: '#9a6712',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 16,
-                  }}
-                >
-                  ★
-                </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <b style={{ display: 'block', fontSize: 15 }}>{d.title}</b>
-                  <span style={{ fontSize: 12, color: colors.muted }}>
-                    Ready for your final call
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {needsMyVote.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
-          <p className="section-label">Needs your vote</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {needsMyVote.map(d => (
-              <button
-                key={String(d.id)}
-                type="button"
-                onClick={() => onNavigate('decide')}
-                style={{ ...cardStyle, width: '100%', cursor: 'pointer', textAlign: 'left' }}
-              >
-                <span
-                  style={{
-                    width: 36,
-                    height: 36,
-                    flex: 'none',
-                    borderRadius: 10,
-                    background: colors.greenTint,
-                    color: colors.green,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 16,
-                  }}
-                >
-                  ✓
-                </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <b style={{ display: 'block', fontSize: 15 }}>{d.title}</b>
-                  <span style={{ fontSize: 12, color: colors.muted }}>
-                    Cast your vote
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section style={{ marginBottom: 24 }}>
-        <p className="section-label">Your turn</p>
-        {myOpenTasks.length === 0 ? (
-          <p style={{ fontSize: 14, color: colors.muted }}>
-            No open tasks assigned to you.
-          </p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {myOpenTasks.map(task => (
-              <label key={String(task.id)} style={{ ...cardStyle, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={task.done}
-                  onChange={() => toggleTask({ taskId: task.id })}
-                />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <b style={{ display: 'block', fontSize: 15 }}>{task.title}</b>
-                  {formatDue(task.dueAt) && (
-                    <span style={{ fontSize: 12, color: colors.muted }}>
-                      due {formatDue(task.dueAt)}
-                    </span>
-                  )}
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
-        {myOpenTasks.length > 0 && (
-          <button
-            type="button"
-            onClick={() => onNavigate('tasks')}
-            style={{
-              marginTop: 10,
-              border: 'none',
-              background: 'none',
-              color: colors.green,
-              fontFamily: fonts.ui,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              padding: 0,
-            }}
-          >
-            See all tasks →
-          </button>
-        )}
-      </section>
-
-      <section className="wedding-chat" aria-label="Wedding group chat">
-        <div className="chat-heading"><div><p className="section-label">Wedding chat</p><h2>Keep the group in one place</h2></div><MessageCircle size={21}/></div>
-        <p className="chat-note">Share updates here. Important details can be turned into drafts for confirmation.</p>
-        <div className="chat-messages">{chat.length ? chat.map(item => { const person = participants.find(participant => participant.identity.equals(item.sentBy)); const own = item.sentBy.toHexString() === myHex; return <article className={own ? 'chat-message own' : 'chat-message'} key={String(item.id)}><b>{own ? 'You' : person?.name ?? 'Wedding member'}</b><p>{item.body}</p><time>{new Date(Number(item.sentAt.microsSinceUnixEpoch / 1000n)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></article>; }) : <p className="chat-empty">Start with a quick update for the family.</p>}</div>
-        <div className="chat-compose"><input value={message} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') postMessage(); }} maxLength={2000} placeholder="Write an update" aria-label="Write a wedding group message"/><button type="button" onClick={postMessage} disabled={!message.trim()} aria-label="Send message"><Send size={17}/></button></div>
-      </section>
-    </div>
-  );
+  return <div className="today-dashboard">
+    <section className="dashboard-hero">
+      <div className="dashboard-welcome"><span className="dashboard-mark" aria-hidden /><p>{exactDate ? `Wedding day, ${exactDate.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}` : wedding?.dateLabel ?? 'Wedding date to confirm'}</p><h1>Good morning, {me?.name?.split(' ')[0] ?? 'there'}</h1></div>
+      <div className="countdown-cards"><div><b>{countdown === undefined ? '—' : Math.max(0, countdown)}</b><span>days</span></div><div><b>{weddingEvents.length}</b><span>events</span></div><div><b>{weddingTasks.length}</b><span>in the plan</span></div></div>
+    </section>
+    <section className="dashboard-metrics" aria-label="Wedding metrics"><div><span>Open work</span><b>{weddingTasks.filter(task => !task.done).length}</b><small>{myOpenTasks.length ? `${myOpenTasks.length} assigned to you` : 'Nothing assigned to you'}</small></div><div><span>Budget tracked</span><b>{fmt.format(spend)}</b><small>{weddingExpenses.length ? `${weddingExpenses.length} lines recorded` : 'No quotes added yet'}</small></div><div><span>Open decisions</span><b>{openDecisions.length}</b><small>{needsMyLock.length ? `${needsMyLock.length} waiting on you` : needsMyVote.length ? `${needsMyVote.length} need your vote` : 'All caught up'}</small></div><div><span>Sources waiting</span><b>{sourceCount}</b><small>Exports and quotes to add</small></div></section>
+    <section className="dashboard-workspace">
+      <div className="dashboard-column"><div className="dashboard-section-heading"><h2>Your turn</h2><p>Only the things you can move forward.</p></div>{actionItems.length ? <div className="action-list">{actionItems.map(item => <button className="dashboard-action" type="button" key={String(item.key)} onClick={item.onClick}><span className={`action-mark ${item.tone}`} /><span><b>{item.title}</b><small>{item.detail}</small></span></button>)}</div> : <div className="dashboard-empty"><CheckCircle2 size={22}/><p>You are clear for now. New work will appear here when it needs you.</p></div>}</div>
+      <div className="dashboard-column"><div className="dashboard-section-heading"><h2>The next days</h2><p>What is coming up across the wedding.</p></div><div className="event-list">{weddingEvents.length ? weddingEvents.map(event => <article key={String(event.id)}><time>{shortDate(event.startsAt)}</time><span><b>{event.title}</b><p>{event.venue ?? 'Venue to confirm'}{event.state === 'reported' ? ' · draft' : ''}</p></span></article>) : <div className="dashboard-empty"><CalendarDays size={22}/><p>Add a calendar export or event details to see the schedule here.</p></div>}</div><div className="since-yesterday"><b>Since the last update</b>{chat.length ? chat.slice(0, 3).map(item => { const sender = participants.find(person => person.identity.equals(item.sentBy)); return <p key={String(item.id)}><strong>{sender?.name ?? 'Wedding member'}</strong> {item.body}</p>; }) : <p>No updates yet. Your group chat will keep the family in the loop.</p>}</div></div>
+    </section>
+    <section className="dashboard-chat"><div className="dashboard-section-heading"><div><p className="section-label">Wedding chat</p><h2>Keep the group close</h2></div><MessageCircle size={21}/></div><p>Share an update with everyone in the wedding.</p><div className="chat-compose"><input value={message} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') postMessage(); }} maxLength={2000} placeholder="Write an update" aria-label="Write a wedding group message"/><button type="button" onClick={postMessage} disabled={!message.trim()} aria-label="Send message"><Send size={17}/></button></div></section>
+  </div>;
 }
