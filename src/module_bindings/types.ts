@@ -145,6 +145,19 @@ export const Wedding = __t.object("Wedding", {
 });
 export type Wedding = __Infer<typeof Wedding>;
 
+export const WeddingAgent = __t.object("WeddingAgent", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  kind: __t.string(),
+  enabled: __t.bool(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type WeddingAgent = __Infer<typeof WeddingAgent>;
+
 export const WeddingInvitation = __t.object("WeddingInvitation", {
   id: __t.u64(),
   weddingId: __t.u64(),

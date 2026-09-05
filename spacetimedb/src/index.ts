@@ -16,6 +16,12 @@ type Role = (typeof ROLES)[number];
 const SIDES = ['bride', 'groom'] as const;
 type Side = (typeof SIDES)[number];
 
+const INGEST_KINDS = ['pinterest', 'whatsapp', 'guests', 'quotes', 'calendar', 'vendor_details'] as const;
+type IngestKind = (typeof INGEST_KINDS)[number];
+
+const WEDDING_AGENT_KINDS = ['coordinator', 'decision', 'guest_logistics', 'vendor_liaison'] as const;
+type WeddingAgentKind = (typeof WEDDING_AGENT_KINDS)[number];
+
 const participant = table(
   {
     name: 'participant',
@@ -155,6 +161,24 @@ const ingest_source = table(
   }
 );
 
+// Agents are explicitly added by a wedding administrator. This is an
+// assignment record, not a user identity: agents never become accountable
+// members and may only propose or coordinate work in the external agent layer.
+const wedding_agent = table(
+  { name: 'wedding_agent', public: true, indexes: [{ accessor: 'by_wedding_kind', algorithm: 'btree', columns: ['weddingId', 'kind'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    kind: t.string(),
+    enabled: t.bool(),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
 const decision = table(
   { name: 'decision', public: true },
   {
@@ -247,6 +271,7 @@ const spacetimedb = schema({
   event,
   expense,
   ingest_source,
+  wedding_agent,
 });
 export default spacetimedb;
 
@@ -354,7 +379,7 @@ export const createWedding = spacetimedb.reducer(
       updatedAt: ctx.timestamp,
     });
     for (const kind of sourceKinds) {
-      if (!['pinterest', 'whatsapp', 'guests', 'quotes'].includes(kind)) {
+      if (!INGEST_KINDS.includes(kind as IngestKind)) {
         throw new SenderError('invalid ingest source');
       }
       ctx.db.ingest_source.insert({
@@ -439,6 +464,39 @@ export const addMember = spacetimedb.reducer(
     if (membershipFor(ctx, weddingId, identity)) throw new SenderError('this person is already in the wedding');
     if (!ctx.db.participant.identity.find(identity)) throw new SenderError('ask this person to sign in first');
     ctx.db.member.insert({ id: 0n, weddingId, identity, role, side, joinedAt: ctx.timestamp, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+// The client records intent only. Uploading/parsing happens outside the module;
+// the worker writes extracted facts back as reported state for human review.
+export const requestIngest = spacetimedb.reducer(
+  { weddingId: t.u64(), kind: t.string() },
+  (ctx, { weddingId, kind }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add a source');
+    if (!INGEST_KINDS.includes(kind as IngestKind)) throw new SenderError('invalid source type');
+    ctx.db.ingest_source.insert({
+      id: 0n,
+      weddingId,
+      kind,
+      status: 'awaiting_upload',
+      itemCount: 0,
+      submittedBy: ctx.sender,
+      createdAt: ctx.timestamp,
+    });
+  }
+);
+
+export const setWeddingAgent = spacetimedb.reducer(
+  { weddingId: t.u64(), kind: t.string(), enabled: t.bool() },
+  (ctx, { weddingId, kind, enabled }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can manage assistants');
+    if (!WEDDING_AGENT_KINDS.includes(kind as WeddingAgentKind)) throw new SenderError('invalid assistant');
+    const [existing] = [...ctx.db.wedding_agent.by_wedding_kind.filter([weddingId, kind])];
+    if (existing) {
+      ctx.db.wedding_agent.id.update({ ...existing, enabled, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    } else {
+      ctx.db.wedding_agent.insert({ id: 0n, weddingId, kind, enabled, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    }
   }
 );
 

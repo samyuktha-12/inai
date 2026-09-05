@@ -38,8 +38,10 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
   const weddingMembers = members.filter(member => member.weddingId === weddingId);
   const myMembership = weddingMembers.find(member => member.identity.toHexString() === myHex);
   const iAmAdmin = myMembership?.role === 'couple' || myMembership?.role === 'planner';
-  const online = [...participants]
-    .filter(p => p.connected)
+  const online = participants
+    .filter(p =>
+      p.connected && weddingMembers.some(member => member.identity.toHexString() === p.identity.toHexString()),
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const createInvite = () => {
@@ -135,7 +137,7 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
                     ))}
                   </select>
                 ) : (
-                  <span style={{ fontSize: 12, color: colors.muted }}>{membership ? (ROLE_LABELS[membership.role] ?? membership.role) : 'Invite needed'}</span>
+                  <span style={{ fontSize: 12, color: colors.muted }}>{membership && (ROLE_LABELS[membership.role] ?? membership.role)}</span>
                 )}
               </div>
             );

@@ -44,6 +44,7 @@ import CreateWeddingReducer from "./create_wedding_reducer";
 import CreateWeddingInvitationReducer from "./create_wedding_invitation_reducer";
 import LinkPhoneReducer from "./link_phone_reducer";
 import LockDecisionReducer from "./lock_decision_reducer";
+import RequestIngestReducer from "./request_ingest_reducer";
 import SetDeciderReducer from "./set_decider_reducer";
 import SetMembershipRoleReducer from "./set_membership_role_reducer";
 import SetMembershipSideReducer from "./set_membership_side_reducer";
@@ -51,6 +52,7 @@ import SetNameReducer from "./set_name_reducer";
 import SetRoleReducer from "./set_role_reducer";
 import SetSideReducer from "./set_side_reducer";
 import SetWebhookSecretReducer from "./set_webhook_secret_reducer";
+import SetWeddingAgentReducer from "./set_wedding_agent_reducer";
 import ToggleTaskReducer from "./toggle_task_reducer";
 import UpdateMyProfileReducer from "./update_my_profile_reducer";
 
@@ -67,6 +69,7 @@ import ParticipantRow from "./participant_table";
 import TaskRow from "./task_table";
 import VoteRow from "./vote_table";
 import WeddingRow from "./wedding_table";
+import WeddingAgentRow from "./wedding_agent_table";
 
 /** Type-only namespace exports for generated type groups. */
 
@@ -205,6 +208,21 @@ const tablesSchema = __schema({
       { name: 'wedding_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, WeddingRow),
+  weddingAgent: __table({
+    name: 'wedding_agent',
+    indexes: [
+      { accessor: 'id', name: 'wedding_agent_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding_kind', name: 'wedding_agent_wedding_id_kind_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+        'kind',
+      ] },
+    ],
+    constraints: [
+      { name: 'wedding_agent_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, WeddingAgentRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -219,6 +237,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_wedding_invitation", CreateWeddingInvitationReducer),
   __reducerSchema("link_phone", LinkPhoneReducer),
   __reducerSchema("lock_decision", LockDecisionReducer),
+  __reducerSchema("request_ingest", RequestIngestReducer),
   __reducerSchema("set_decider", SetDeciderReducer),
   __reducerSchema("set_membership_role", SetMembershipRoleReducer),
   __reducerSchema("set_membership_side", SetMembershipSideReducer),
@@ -226,6 +245,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_role", SetRoleReducer),
   __reducerSchema("set_side", SetSideReducer),
   __reducerSchema("set_webhook_secret", SetWebhookSecretReducer),
+  __reducerSchema("set_wedding_agent", SetWeddingAgentReducer),
   __reducerSchema("toggle_task", ToggleTaskReducer),
   __reducerSchema("update_my_profile", UpdateMyProfileReducer),
 );
@@ -240,6 +260,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "decision_option": Omit<typeof tablesSchema.schemaType.tables["decisionOption"], "accessorName"> & { readonly accessorName: "decision_option" };
     /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
     readonly "ingest_source": Omit<typeof tablesSchema.schemaType.tables["ingestSource"], "accessorName"> & { readonly accessorName: "ingest_source" };
+    /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
+    readonly "wedding_agent": Omit<typeof tablesSchema.schemaType.tables["weddingAgent"], "accessorName"> & { readonly accessorName: "wedding_agent" };
   };
 };
 
@@ -260,6 +282,7 @@ const REMOTE_MODULE = {
 const tableAccessorAliases = {
   "decision_option": "decisionOption",
   "ingest_source": "ingestSource",
+  "wedding_agent": "weddingAgent",
 } as const;
 
 function __withTableAccessorAliases<T extends object>(target: T, freeze = false): T {
@@ -284,6 +307,8 @@ export type DbView = __DbViewBase & {
   readonly "decision_option": __DbViewBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __DbViewBase["ingestSource"];
+  /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
+  readonly "wedding_agent": __DbViewBase["weddingAgent"];
 };
 
 type __TablesBase = __QueryBuilder<typeof tablesSchema.schemaType>;
@@ -292,6 +317,8 @@ export type Tables = __TablesBase & {
   readonly "decision_option": __TablesBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __TablesBase["ingestSource"];
+  /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
+  readonly "wedding_agent": __TablesBase["weddingAgent"];
 };
 
 /** The tables available in this remote SpacetimeDB module. Each table reference doubles as a query builder. */
