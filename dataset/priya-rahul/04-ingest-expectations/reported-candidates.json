@@ -1,0 +1,28 @@
+{
+  "purpose": "Expected high-level candidates for a fixture test. Every entry must enter the product as reported, never confirmed.",
+  "wedding": {
+    "couple": ["Priya Iyer", "Rahul Mehta"],
+    "city": "Chennai",
+    "tentative_date": "2027-01-24",
+    "estimated_guest_count": 220
+  },
+  "candidates": [
+    {"type": "event", "value": "morning muhurtham", "state": "reported", "source": "whatsapp_export", "confidence": 0.73},
+    {"type": "venue_shortlist", "value": ["Banyan Court", "The Madras House"], "state": "reported", "source": "whatsapp_export", "confidence": 0.88},
+    {"type": "task", "value": "Arrange or confirm Banyan Court venue visit", "owner": "Rahul Mehta", "due_hint": "2026-06-21T10:30:00+05:30", "state": "reported", "source": "whatsapp_export", "confidence": 0.74},
+    {"type": "task", "value": "List Priya-side out-of-town accommodation needs", "owner": "Lakshmi", "due_hint": "2026-06-17", "state": "reported", "source": "whatsapp_export", "confidence": 0.91},
+    {"type": "task", "value": "Share Rahul-side Bangalore accommodation list", "owner": "Rahul Mehta", "due_hint": "2026-06-17", "state": "reported", "source": "whatsapp_export", "confidence": 0.91},
+    {"type": "task", "value": "Research family accommodation options", "owner": "Aditi", "state": "reported", "source": "whatsapp_export", "confidence": 0.89},
+    {"type": "budget_hint", "value": "Decor planning number under ₹300,000", "state": "reported", "source": "whatsapp_export", "confidence": 0.82},
+    {"type": "mood_brief", "value": "Jasmine, ivory, muted peach and brass; calm and uncluttered; avoid heavy red and gold", "state": "reported", "source": "pinterest_export_mock", "confidence": 0.93},
+    {"type": "vendor_quote", "value": "Nila Blooms Decor total ₹389,400", "state": "reported", "source": "vendor_quote", "confidence": 0.99},
+    {"type": "vendor_quote", "value": "Amaravati Events total ₹292,640", "state": "reported", "source": "vendor_quote", "confidence": 0.99},
+    {"type": "vendor_quote", "value": "Frames by Ananya total ₹279,660", "state": "reported", "source": "vendor_quote", "confidence": 0.99}
+  ],
+  "do_not_infer": [
+    "A venue booking or a confirmed venue visit",
+    "A decorator or photographer selection",
+    "Permission for an automated vendor call or vendor message",
+    "A final wedding date, menu, spend cap or guest count"
+  ]
+}

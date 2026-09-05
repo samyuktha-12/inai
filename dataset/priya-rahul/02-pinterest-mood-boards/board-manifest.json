@@ -1,0 +1,54 @@
+{
+  "dataset": "priya-rahul-synthetic",
+  "source": "pinterest_export_mock",
+  "boards": [
+    {
+      "title": "Priya & Rahul — calm Chennai ceremony",
+      "shared_url": "https://www.example.test/boards/priya-rahul-ceremony",
+      "provided_by": "Priya Iyer",
+      "exported_at": "2026-06-12T10:01:00+05:30"
+    },
+    {
+      "title": "Priya's coral silk styling",
+      "shared_url": "https://www.example.test/boards/priya-coral-styling",
+      "provided_by": "Priya Iyer",
+      "exported_at": "2026-06-12T14:07:00+05:30"
+    },
+    {
+      "title": "Warm garden celebration",
+      "shared_url": "https://www.example.test/boards/priya-rahul-dinner",
+      "provided_by": "Aditi",
+      "exported_at": "2026-06-13T12:20:00+05:30"
+    }
+  ],
+  "notice": "Mock URLs and original local images. No Pinterest content was collected.",
+  "pins": [
+    {
+      "id": "mock-pin-001",
+      "board_title": "Priya & Rahul — calm Chennai ceremony",
+      "title": "Jasmine and ivory mandap",
+      "category_hint": "ceremony_decor",
+      "image_path": "images/ceremony-mandap.png",
+      "alt_text": "Ivory ceremony canopy with jasmine garlands, muted peach flowers and brass lamps in a heritage courtyard.",
+      "notes": "Priya: jasmine / ivory / peach, not heavy red and gold"
+    },
+    {
+      "id": "mock-pin-002",
+      "board_title": "Priya's coral silk styling",
+      "title": "Coral silk and pearl styling",
+      "category_hint": "bridal_attire",
+      "image_path": "images/bridal-styling.png",
+      "alt_text": "Coral silk sari with jasmine flowers, pearls, brass tray and an unaddressed ivory envelope.",
+      "notes": "Priya: coral rather than pink; flowers should complement rather than match exactly"
+    },
+    {
+      "id": "mock-pin-003",
+      "board_title": "Warm garden celebration",
+      "title": "Warm garden dinner",
+      "category_hint": "reception_dining",
+      "image_path": "images/dinner-celebration.png",
+      "alt_text": "Open-air dinner tables with peach flowers, banana-leaf settings, brass lights and warm evening ambience.",
+      "notes": "Aditi: clean flowers and brass lamps feel right"
+    }
+  ]
+}

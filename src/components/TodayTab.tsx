@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Timestamp } from 'spacetimedb';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
-import { CalendarDays, CheckCircle2, MessageCircle, Send } from 'lucide-react';
+import { CalendarDays, CheckCircle2, MessageCircle } from 'lucide-react';
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -22,7 +22,7 @@ function shortDate(value?: Timestamp) {
   return new Date(Number(value.microsSinceUnixEpoch / 1000n)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function TodayTab({ onNavigate, weddingId }: { onNavigate: (tab: 'decide' | 'tasks') => void; weddingId: bigint }) {
+export default function TodayTab({ onNavigate, onOpenChat, weddingId }: { onNavigate: (tab: 'decide' | 'tasks') => void; onOpenChat: () => void; weddingId: bigint }) {
   const { identity } = useSpacetimeDB();
   const [tasks] = useTable(tables.task);
   const [decisions] = useTable(tables.decision);
@@ -34,8 +34,6 @@ export default function TodayTab({ onNavigate, weddingId }: { onNavigate: (tab: 
   const [messages] = useTable(tables.weddingMessage);
   const [weddings] = useTable(tables.wedding);
   const toggleTask = useReducer(reducers.toggleTask);
-  const sendWeddingMessage = useReducer(reducers.sendWeddingMessage);
-  const [message, setMessage] = useState('');
   const myHex = identity?.toHexString();
   const me = participants.find(person => person.identity.toHexString() === myHex);
   const wedding = weddings.find(row => row.id === weddingId);
@@ -57,11 +55,6 @@ export default function TodayTab({ onNavigate, weddingId }: { onNavigate: (tab: 
     ...needsMyVote.map(item => ({ key: `vote-${item.id}`, tone: 'jade', title: `Vote on ${item.title}`, detail: 'Your input is needed', onClick: () => onNavigate('decide') })),
     ...myOpenTasks.map(item => ({ key: `task-${item.id}`, tone: 'mist', title: item.title, detail: `Due ${shortDate(item.dueAt)}`, onClick: () => toggleTask({ taskId: item.id }) })),
   ].slice(0, 3);
-  const postMessage = () => {
-    if (!message.trim()) return;
-    sendWeddingMessage({ weddingId, body: message.trim() });
-    setMessage('');
-  };
 
   return <div className="today-dashboard">
     <section className="dashboard-hero">
@@ -73,6 +66,6 @@ export default function TodayTab({ onNavigate, weddingId }: { onNavigate: (tab: 
       <div className="dashboard-column"><div className="dashboard-section-heading"><h2>Your turn</h2><p>Only the things you can move forward.</p></div>{actionItems.length ? <div className="action-list">{actionItems.map(item => <button className="dashboard-action" type="button" key={String(item.key)} onClick={item.onClick}><span className={`action-mark ${item.tone}`} /><span><b>{item.title}</b><small>{item.detail}</small></span></button>)}</div> : <div className="dashboard-empty"><CheckCircle2 size={22}/><p>You are clear for now. New work will appear here when it needs you.</p></div>}</div>
       <div className="dashboard-column"><div className="dashboard-section-heading"><h2>The next days</h2><p>What is coming up across the wedding.</p></div><div className="event-list">{weddingEvents.length ? weddingEvents.map(event => <article key={String(event.id)}><time>{shortDate(event.startsAt)}</time><span><b>{event.title}</b><p>{event.venue ?? 'Venue to confirm'}{event.state === 'reported' ? ' · draft' : ''}</p></span></article>) : <div className="dashboard-empty"><CalendarDays size={22}/><p>Add a calendar export or event details to see the schedule here.</p></div>}</div><div className="since-yesterday"><b>Since the last update</b>{chat.length ? chat.slice(0, 3).map(item => { const sender = participants.find(person => person.identity.equals(item.sentBy)); return <p key={String(item.id)}><strong>{sender?.name ?? 'Wedding member'}</strong> {item.body}</p>; }) : <p>No updates yet. Your group chat will keep the family in the loop.</p>}</div></div>
     </section>
-    <section className="dashboard-chat"><div className="dashboard-section-heading"><div><p className="section-label">Wedding chat</p><h2>Keep the group close</h2></div><MessageCircle size={21}/></div><p>Share an update with everyone in the wedding.</p><div className="chat-compose"><input value={message} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') postMessage(); }} maxLength={2000} placeholder="Write an update" aria-label="Write a wedding group message"/><button type="button" onClick={postMessage} disabled={!message.trim()} aria-label="Send message"><Send size={17}/></button></div></section>
+    <section className="dashboard-chat"><div className="dashboard-section-heading"><div><p className="section-label">Wedding chat</p><h2>Keep the group close</h2></div><MessageCircle size={21}/></div><p>{chat.length ? `${chat.length} ${chat.length === 1 ? 'message' : 'messages'} in the group conversation.` : 'Share an update with everyone in the wedding.'}</p><button type="button" className="open-chat-button" onClick={onOpenChat}>Open wedding chat <MessageCircle size={17}/></button></section>
   </div>;
 }

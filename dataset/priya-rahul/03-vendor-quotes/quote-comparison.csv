@@ -1,0 +1,4 @@
+vendor,category,quote_reference,event_date,status,currency,subtotal_inr,gst_inr,total_inr,validity_days,booking_deposit_percent,availability_note
+Nila Blooms Decor,decor,NB-PR-0613,2027-01-24,estimate_only,INR,330000,59400,389400,15,50,Date not held
+Amaravati Events,decor,AE-1427,2027-01-24,estimate_only,INR,248000,44640,292640,10,60,Availability not guaranteed
+Frames by Ananya,photography,FBA-PR-102,2027-01-24,estimate_only,INR,237000,42660,279660,7,40,Available but not held

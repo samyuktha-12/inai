@@ -796,6 +796,47 @@ export const voiceContext = spacetimedb.httpHandler((ctx, request) => {
       return jsonResponse(404, { error: 'no participant with this phone number' });
     }
 
+    // Scope all shared wedding information to weddings this caller belongs to.
+    // The voice-agent prompt is an additional safety layer, not the access
+    // control boundary.
+    const weddingIds = new Set(
+      [...tx.db.member.by_identity.filter(person.identity)].map(row => row.weddingId.toString())
+    );
+    const weddings = [...tx.db.wedding.iter()]
+      .filter(row => weddingIds.has(row.id.toString()))
+      .map(row => ({
+        id: Number(row.id),
+        brideName: row.brideName,
+        groomName: row.groomName,
+        city: row.city,
+        dateLabel: row.dateLabel,
+      }));
+    const events = [...tx.db.event.iter()]
+      .filter(row => weddingIds.has(row.weddingId.toString()))
+      .map(row => ({
+        id: Number(row.id),
+        weddingId: Number(row.weddingId),
+        title: row.title,
+        startsAt: row.startsAt ? Number(row.startsAt.microsSinceUnixEpoch / 1000n) : null,
+        venue: row.venue ?? null,
+        // A reported event must never be phrased as settled by the voice agent.
+        state: row.state,
+      }));
+    const decisions = [...tx.db.decision.iter()]
+      .filter(row => row.weddingId !== undefined && weddingIds.has(row.weddingId.toString()))
+      .map(row => {
+        const option = row.lockedOptionId === undefined
+          ? undefined
+          : tx.db.decision_option.id.find(row.lockedOptionId);
+        return {
+          id: Number(row.id),
+          weddingId: Number(row.weddingId!),
+          title: row.title,
+          lockedOption: option?.label ?? null,
+          // A decision is final only when a human has locked an option.
+          state: option ? 'confirmed' : 'open',
+        };
+      });
     const openTasks = [...tx.db.task.iter()]
       .filter(row => row.ownerIdentity.equals(person.identity) && !row.done)
       .map(row => ({
@@ -811,6 +852,9 @@ export const voiceContext = spacetimedb.httpHandler((ctx, request) => {
       name: person.name,
       role: person.role,
       side: person.side ?? null,
+      weddings,
+      events,
+      decisions,
       openTasks,
     });
   });

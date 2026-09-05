@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Home, Vote, MapPin, Users, LogOut, ArrowLeft, X } from 'lucide-react';
+import { Home, Vote, MapPin, Users, LogOut, ArrowLeft, X, MessageCircle } from 'lucide-react';
 import { tables, reducers } from '../module_bindings';
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
 import TodayTab from './TodayTab';
 import DecisionBoard from './DecisionBoard';
 import WeddingTab from './WeddingTab';
+import GroupChat from './GroupChat';
 import { colors, fonts } from '../theme';
 
 type Tab = 'today' | 'decide' | 'wedding';
@@ -212,6 +213,7 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
   const { isActive } = useSpacetimeDB();
   const [tab, setTab] = useState<Tab>('today');
   const [peopleOpen, setPeopleOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   return (
     <div className="inai-app">
@@ -269,6 +271,7 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
             }}
             title={isActive ? 'Connected' : 'Connecting…'}
           />
+          <button type="button" onClick={() => setChatOpen(true)} aria-label="Open wedding chat" className="topbar-chat-button"><MessageCircle size={19} /><span>Chat</span></button>
           <button
             type="button"
             onClick={() => setPeopleOpen(true)}
@@ -292,12 +295,13 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
       </header>
 
       <main className="inai-page">
-        {tab === 'today' && <TodayTab weddingId={weddingId} onNavigate={t => setTab(t === 'tasks' ? 'wedding' : t)} />}
+        {tab === 'today' && <TodayTab weddingId={weddingId} onNavigate={t => setTab(t === 'tasks' ? 'wedding' : t)} onOpenChat={() => setChatOpen(true)} />}
         {tab === 'decide' && <DecisionBoard weddingId={weddingId} />}
         {tab === 'wedding' && <WeddingTab weddingId={weddingId} />}
       </main>
 
       {peopleOpen && <PeoplePanel weddingId={weddingId} onClose={() => setPeopleOpen(false)} />}
+      {chatOpen && <GroupChat weddingId={weddingId} onClose={() => setChatOpen(false)} />}
     </div>
   );
 }
