@@ -12,7 +12,7 @@ type Tab = 'today' | 'decide' | 'wedding';
 
 const ROLE_LABELS: Record<string, string> = {
   couple: 'Couple',
-  planner: 'Planner',
+  planner: 'Event creator',
   family: 'Family',
   guest: 'Guest',
 };
@@ -27,13 +27,9 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
   const { identity } = useSpacetimeDB();
   const [participants] = useTable(tables.participant);
   const [members] = useTable(tables.member);
-  const setName = useReducer(reducers.setName);
-  const addMember = useReducer(reducers.addMember);
   const createWeddingInvitation = useReducer(reducers.createWeddingInvitation);
-  const setMembershipSide = useReducer(reducers.setMembershipSide);
   const setMembershipRole = useReducer(reducers.setMembershipRole);
-  const [name, setNameInput] = useState('');
-  const [inviteRole, setInviteRole] = useState('family');
+  const [inviteRole, setInviteRole] = useState('');
   const [inviteSide, setInviteSide] = useState('');
   const [inviteLink, setInviteLink] = useState('');
 
@@ -46,80 +42,26 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
     .filter(p => p.connected)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const submitName = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setName({ name: name.trim() });
-    setNameInput('');
-  };
-
   const createInvite = () => {
+    if (!inviteRole) return;
     const code = crypto.randomUUID().split('-').join('');
     createWeddingInvitation({ weddingId, code, role: inviteRole, side: inviteSide || undefined });
     setInviteLink(`${window.location.origin}/?invite=${code}`);
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        background: 'rgba(22,17,13,0.5)',
-        display: 'flex',
-        alignItems: 'flex-end',
-      }}
-      onClick={onClose}
-    >
+    <div className="modal-backdrop modal-backdrop--sheet" onClick={onClose}>
       <div
+        className="modal-sheet people-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="people-modal-title"
         onClick={e => e.stopPropagation()}
-        style={{
-          background: colors.paper,
-          width: '100%',
-          maxWidth: 560,
-          margin: '0 auto',
-          borderRadius: '20px 20px 0 0',
-          padding: '20px 20px calc(20px + env(safe-area-inset-bottom))',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          fontFamily: fonts.sans,
-        }}
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 16,
-          }}
-        >
-          <h2
-            style={{
-              fontFamily: fonts.serif,
-              fontWeight: 400,
-              fontSize: 20,
-              margin: 0,
-              color: colors.ink2,
-            }}
-          >
-            People
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: 'none',
-              background: colors.paperAlt,
-              borderRadius: '50%',
-              width: 32,
-              height: 32,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: colors.ink2,
-            }}
-          >
+        <div className="modal-handle" aria-hidden="true" />
+        <div className="sheet-heading">
+          <div><p className="eyebrow">Wedding circle</p><h2 id="people-modal-title">People</h2></div>
+          <button type="button" onClick={onClose} className="close-button" aria-label="Close people panel">
             <X size={16} />
           </button>
         </div>
@@ -129,68 +71,6 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
           {myMembership?.role && ` · ${ROLE_LABELS[myMembership.role] ?? myMembership.role}`}
           {myMembership?.side && ` · ${SIDE_LABELS[myMembership.side] ?? myMembership.side}`}
         </p>
-
-        <form
-          onSubmit={submitName}
-          style={{ display: 'flex', gap: 8, marginBottom: 10 }}
-        >
-          <input
-            value={name}
-            onChange={e => setNameInput(e.target.value)}
-            placeholder="Set your name"
-            style={{
-              flex: 1,
-              height: 40,
-              borderRadius: 10,
-              border: `1px solid ${colors.hairline}`,
-              padding: '0 12px',
-              fontFamily: fonts.ui,
-              fontSize: 14,
-              boxSizing: 'border-box',
-            }}
-          />
-          <button
-            type="submit"
-            style={{
-              height: 40,
-              padding: '0 16px',
-              borderRadius: 10,
-              border: 'none',
-              background: colors.green,
-              color: '#FFFFFF',
-              fontFamily: fonts.ui,
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Save
-          </button>
-        </form>
-
-        {myMembership && <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          {(['bride', 'groom'] as const).map(side => (
-            <button
-              key={side}
-              type="button"
-            onClick={() => setMembershipSide({ weddingId, identity: myMembership.identity, side })}
-              style={{
-                flex: 1,
-                height: 36,
-                borderRadius: 10,
-                border: `1px solid ${myMembership.side === side ? colors.green : colors.hairline}`,
-                background: myMembership.side === side ? colors.greenTint : '#FFFFFF',
-                color: myMembership.side === side ? colors.green : colors.muted,
-                fontFamily: fonts.ui,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              {SIDE_LABELS[side]}
-            </button>
-          ))}
-        </div>}
 
         <p
           style={{
@@ -234,9 +114,7 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
                   {p.name}
                   {isMe ? ' (you)' : ''}
                 </span>
-                {iAmAdmin && !membership ? (
-                  <button type="button" onClick={() => addMember({ weddingId, identity: p.identity, role: 'family', side: undefined })} style={{ border: 'none', background: colors.greenTint, color: colors.green, borderRadius: 8, padding: '6px 9px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Add</button>
-                ) : iAmAdmin && !isMe ? (
+                {iAmAdmin && membership && !isMe ? (
                   <select
                     value={membership?.role ?? 'guest'}
                     onChange={e =>
@@ -257,9 +135,7 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
                     ))}
                   </select>
                 ) : (
-                  <span style={{ fontSize: 12, color: colors.muted }}>
-                    {membership ? (ROLE_LABELS[membership.role] ?? membership.role) : 'Not added'}
-                  </span>
+                  <span style={{ fontSize: 12, color: colors.muted }}>{membership ? (ROLE_LABELS[membership.role] ?? membership.role) : 'Invite needed'}</span>
                 )}
               </div>
             );
@@ -268,16 +144,17 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
 
         {iAmAdmin && <section style={{ marginBottom: 20, padding: 14, border: `1px solid ${colors.hairline}`, borderRadius: 14, background: '#FFFFFF' }}>
           <b style={{ display: 'block', fontSize: 15, marginBottom: 5 }}>Invite someone</b>
-          <p style={{ color: colors.muted, fontSize: 13, lineHeight: 1.4, margin: '0 0 10px' }}>Choose their role now. They can join after signing in with Google.</p>
+          <p style={{ color: colors.muted, fontSize: 13, lineHeight: 1.4, margin: '0 0 10px' }}>Choose their role before creating a private link. It is applied when they join and cannot be changed by them.</p>
           <div style={{ display: 'flex', gap: 8, marginBottom: 9 }}>
-            <select value={inviteRole} onChange={event => setInviteRole(event.target.value)} style={{ flex: 1, height: 40, border: `1px solid ${colors.hairline}`, borderRadius: 9, padding: '0 8px' }}>
+            <select required value={inviteRole} onChange={event => setInviteRole(event.target.value)} style={{ flex: 1, height: 40, border: `1px solid ${colors.hairline}`, borderRadius: 9, padding: '0 8px' }}>
+              <option value="" disabled>Choose a role</option>
               {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
             <select value={inviteSide} onChange={event => setInviteSide(event.target.value)} style={{ flex: 1, height: 40, border: `1px solid ${colors.hairline}`, borderRadius: 9, padding: '0 8px' }}>
               <option value="">No side yet</option><option value="bride">Bride’s side</option><option value="groom">Groom’s side</option>
             </select>
           </div>
-          <button type="button" onClick={createInvite} style={{ width: '100%', height: 42, border: 'none', borderRadius: 10, background: colors.green, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Create invite link</button>
+          <button type="button" disabled={!inviteRole} onClick={createInvite} style={{ width: '100%', height: 42, border: 'none', borderRadius: 10, background: colors.green, color: '#fff', fontWeight: 700, cursor: inviteRole ? 'pointer' : 'not-allowed', opacity: inviteRole ? 1 : .45 }}>Create invite link</button>
           {inviteLink && <><input readOnly value={inviteLink} aria-label="Wedding invitation link" style={{ width: '100%', height: 40, marginTop: 10, border: `1px solid ${colors.hairline}`, borderRadius: 9, padding: '0 8px', fontSize: 12 }} /><button type="button" onClick={() => navigator.clipboard?.writeText(inviteLink)} style={{ marginTop: 7, border: 0, background: 'transparent', color: colors.green, padding: 0, fontWeight: 700, cursor: 'pointer' }}>Copy link</button></>}
         </section>}
 

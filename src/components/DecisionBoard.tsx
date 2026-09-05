@@ -9,13 +9,15 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
   const [options] = useTable(tables.decisionOption);
   const [votes] = useTable(tables.vote);
   const [participants] = useTable(tables.participant);
+  const [members] = useTable(tables.member);
   const castVote = useReducer(reducers.castVote);
   const lockDecision = useReducer(reducers.lockDecision);
   const setDecider = useReducer(reducers.setDecider);
   const [choice, setChoice] = useState<bigint | undefined>();
   const [showAll, setShowAll] = useState(false);
   const myHex = identity?.toHexString();
-  const me = participants.find(row => row.identity.toHexString() === myHex);
+  const myMembership = members.find(row => row.weddingId === weddingId && row.identity.toHexString() === myHex);
+  const iAmAdmin = myMembership?.role === 'couple' || myMembership?.role === 'planner';
   const next = useMemo(() => [...decisions].filter(row => row.weddingId === weddingId && row.lockedOptionId === undefined).sort((a, b) => Number(a.id - b.id))[0], [decisions, weddingId]);
 
   if (!next) return <div className="empty-state"><Check size={28}/><h1 className="headline">Every decision is settled</h1><p>New choices from your wedding team will appear here.</p></div>;
@@ -26,7 +28,7 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
   const decider = next.deciderIdentity
     ? participants.find(row => row.identity.equals(next.deciderIdentity!))
     : undefined;
-  const iCanDecide = next.deciderIdentity?.toHexString() === myHex || me?.role === 'couple';
+  const iCanDecide = next.deciderIdentity?.toHexString() === myHex || myMembership?.role === 'couple';
   const count = (optionId: bigint) => votes.filter(row => row.decisionId === next.id && row.optionId === optionId).length;
   const submitVote = () => { if (picked !== undefined) castVote({ decisionId: next.id, optionId: picked }); };
 
@@ -47,7 +49,7 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
     </div>
     {decisionOptions.length > 3 && <button className="ghost-button" onClick={() => setShowAll(value => !value)}>{showAll ? 'Show fewer options' : `See all ${decisionOptions.length} options`}</button>}
     <div className="decider-card"><Crown size={18}/><span>{decider ? <><b>{decider.name}</b> makes the final call.</> : <><b>A decider is needed.</b> A couple or planner can assign one.</>}</span></div>
-    {!next.deciderIdentity && (me?.role === 'couple' || me?.role === 'planner') && <select className="select-control" defaultValue="" aria-label="Choose a decider" onChange={event => { const person = participants.find(row => row.identity.toHexString() === event.target.value); if (person) setDecider({ decisionId: next.id, identity: person.identity }); }}><option value="" disabled>Choose who makes the final call</option>{participants.map(person => <option key={person.identity.toHexString()} value={person.identity.toHexString()}>{person.name}</option>)}</select>}
+    {!next.deciderIdentity && iAmAdmin && <select className="select-control" defaultValue="" aria-label="Choose a decider" onChange={event => { const person = participants.find(row => row.identity.toHexString() === event.target.value); if (person) setDecider({ decisionId: next.id, identity: person.identity }); }}><option value="" disabled>Choose who makes the final call</option>{participants.filter(person => members.some(member => member.weddingId === weddingId && member.identity.equals(person.identity))).map(person => <option key={person.identity.toHexString()} value={person.identity.toHexString()}>{person.name}</option>)}</select>}
     <div className="decision-actions"><button className="primary-button" disabled={picked === undefined} onClick={submitVote}>{picked === undefined ? 'Choose an option' : `Vote: ${decisionOptions.find(item => item.id === picked)?.label}`}</button>{iCanDecide && picked !== undefined && <button className="lock-button" onClick={() => lockDecision({ decisionId: next.id, optionId: picked })}><LockKeyhole size={16}/> Make final call</button>}</div>
   </div>;
 }

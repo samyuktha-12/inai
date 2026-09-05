@@ -1,93 +1,35 @@
 import { useAuth } from 'react-oidc-context';
-import { colors, fonts } from '../theme';
 
 export default function SignInModal({ onClose }: { onClose: () => void }) {
   const auth = useAuth();
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 200,
-        background: 'rgba(28,27,25,0.55)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 340,
-          background: colors.card,
-          border: `1px solid ${colors.hairline}`,
-          borderRadius: 26,
-          padding: '26px 22px',
-          boxShadow: '0 24px 48px -28px rgba(28,27,25,.3)',
-          fontFamily: fonts.ui,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 23,
-            fontWeight: 700,
-            letterSpacing: '-0.01em',
-            color: colors.ink2,
-            margin: '0 0 6px',
-          }}
-        >
-          Sign in to Inai
-        </div>
-        <p style={{ fontSize: 16, color: colors.muted, margin: '0 0 20px' }}>
+    <div className="modal-backdrop modal-backdrop--center" onClick={onClose}>
+      <div className="modal-card sign-in-modal" role="dialog" aria-modal="true" aria-labelledby="sign-in-title" onClick={e => e.stopPropagation()}>
+        <span className="modal-kicker">Welcome to Inai</span>
+        <h2 id="sign-in-title">Keep the family plan together</h2>
+        <p className="modal-copy">
           One account, every device — no group chat required.
         </p>
 
         {auth.error && (
-          <p style={{ fontSize: 14, color: '#b3402c', margin: '0 0 16px' }}>
+          <p className="modal-error">
             {auth.error.message}
           </p>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="modal-actions">
           <button
             type="button"
             onClick={() => auth.signinRedirect()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              width: '100%',
-              padding: 18,
-              borderRadius: 16,
-              border: 'none',
-              background: colors.green,
-              color: '#FFFFFF',
-              fontFamily: fonts.ui,
-              fontSize: 18,
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
+            className="modal-primary-action"
           >
             <GoogleG /> Sign in with Google
           </button>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              color: colors.green,
-              fontWeight: 600,
-              fontSize: 16,
-              padding: 12,
-              border: 'none',
-              fontFamily: fonts.ui,
-              cursor: 'pointer',
-            }}
+            className="modal-dismiss"
           >
             Not now
           </button>

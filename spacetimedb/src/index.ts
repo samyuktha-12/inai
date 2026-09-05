@@ -371,7 +371,10 @@ export const createWedding = spacetimedb.reducer(
       id: 0n,
       weddingId: created.id,
       identity: ctx.sender,
-      role: 'couple',
+      // The person starting a plan may be a sibling, parent, or professional
+      // planner. They coordinate the wedding; they are not assumed to be one
+      // of the two people getting married.
+      role: 'planner',
       side: undefined,
       joinedAt: ctx.timestamp,
       state: 'confirmed',
@@ -412,17 +415,10 @@ function canManageWedding(ctx: Ctx, weddingId: bigint): boolean {
 
 export const setRole = spacetimedb.reducer(
   { identity: t.identity(), role: t.string() },
-  (ctx, { identity, role }) => {
-    const caller = ctx.db.participant.identity.find(ctx.sender);
-    if (!caller || !isAdmin(caller.role)) {
-      throw new SenderError('only the couple or planner can assign roles');
-    }
-    if (!ROLES.includes(role as Role)) {
-      throw new SenderError('invalid role');
-    }
-    const target = ctx.db.participant.identity.find(identity);
-    if (!target) throw new SenderError('participant not found');
-    ctx.db.participant.identity.update({ ...target, role });
+  (_ctx, _args) => {
+    // Roles are wedding-specific. Kept only for compatibility with older
+    // clients; membership roles can be assigned by a wedding administrator.
+    throw new SenderError('use the wedding membership role instead');
   }
 );
 
@@ -476,6 +472,9 @@ export const updateMyProfile = spacetimedb.reducer(
   (ctx, { name, dateOfBirth, gender, mealPreference }) => {
     const person = ctx.db.participant.identity.find(ctx.sender);
     if (!person) throw new SenderError('sign in before updating your profile');
+    if (person.profileState === 'confirmed' && name !== person.name) {
+      throw new SenderError('your name is set during profile setup');
+    }
     if (gender !== undefined && !['woman', 'man', 'non_binary', 'prefer_not_to_say'].includes(gender)) throw new SenderError('invalid gender');
     ctx.db.participant.identity.update({ ...person, name, dateOfBirth, gender, mealPreference, profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
   }
@@ -485,6 +484,7 @@ export const setMembershipRole = spacetimedb.reducer(
   { weddingId: t.u64(), identity: t.identity(), role: t.string() },
   (ctx, { weddingId, identity, role }) => {
     if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can change roles');
+    if (identity.equals(ctx.sender)) throw new SenderError('your wedding role is set when you join');
     if (!ROLES.includes(role as Role)) throw new SenderError('invalid role');
     const membership = membershipFor(ctx, weddingId, identity);
     if (!membership) throw new SenderError('member not found');
@@ -495,7 +495,7 @@ export const setMembershipRole = spacetimedb.reducer(
 export const setMembershipSide = spacetimedb.reducer(
   { weddingId: t.u64(), identity: t.identity(), side: t.option(t.string()) },
   (ctx, { weddingId, identity, side }) => {
-    if (!canManageWedding(ctx, weddingId) && !identity.equals(ctx.sender)) throw new SenderError('you can only update your own side');
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can change sides');
     if (side !== undefined && !SIDES.includes(side as Side)) throw new SenderError('invalid side');
     const membership = membershipFor(ctx, weddingId, identity);
     if (!membership) throw new SenderError('member not found');
