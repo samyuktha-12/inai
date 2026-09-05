@@ -4,13 +4,13 @@ import { reducers } from '../module_bindings';
 import { useReducer } from 'spacetimedb/react';
 
 export type NewWeddingPlan = {
-  primaryName: string;
-  partnerName: string;
+  brideName: string;
+  groomName: string;
   city: string;
   dateLabel: string;
 };
 
-type Props = { onComplete: (plan: NewWeddingPlan) => void };
+type Props = { onComplete: (plan: NewWeddingPlan) => void; profileName: string };
 
 const sources = [
   ['pinterest', 'Pinterest board', 'Turn your pins into choices', Pin],
@@ -19,17 +19,17 @@ const sources = [
   ['quotes', 'Vendor quotes', 'PDFs or photos', FileText],
 ] as const;
 
-export default function Onboarding({ onComplete }: Props) {
+export default function Onboarding({ onComplete, profileName }: Props) {
   const createWedding = useReducer(reducers.createWedding);
   const [step, setStep] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
-  const [form, setForm] = useState({ primaryName: '', partnerName: '', city: '', dateLabel: '' });
+  const [form, setForm] = useState({ brideName: profileName, groomName: '', city: '', dateLabel: '' });
   const [saving, setSaving] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
 
   const toggle = (source: string) => setSelected(current => current.includes(source) ? current.filter(x => x !== source) : [...current, source]);
   const submit = () => {
-    if (!form.primaryName.trim() || !form.partnerName.trim() || !form.city.trim() || !form.dateLabel.trim()) {
+    if (!form.brideName.trim() || !form.groomName.trim() || !form.city.trim() || !form.dateLabel.trim()) {
       setShowValidation(true);
       return;
     }
@@ -38,8 +38,8 @@ export default function Onboarding({ onComplete }: Props) {
     // The live wedding subscription is the source of truth; this optimistic
     // transition simply avoids making the first setup moment feel stuck.
     onComplete({
-      primaryName: form.primaryName.trim(),
-      partnerName: form.partnerName.trim(),
+      brideName: form.brideName.trim(),
+      groomName: form.groomName.trim(),
       city: form.city.trim(),
       dateLabel: form.dateLabel.trim(),
     });
@@ -50,6 +50,6 @@ export default function Onboarding({ onComplete }: Props) {
   const canContinue = Object.values(form).every(value => value.trim().length > 0);
   return <div className="onboard">
     <p className="setup-progress">Step {step} of 3</p>
-    {step === 1 ? <><h1>Let’s set up the wedding</h1><p className="subtitle">Just the basics. Everything else comes next.</p><div className="onboard-fields">{([['primaryName','Your name','Priya'],['partnerName',"Partner’s name",'Arjun'],['dateLabel','When is it? (a rough date is fine)','December 2026'],['city','City','Chennai']] as const).map(([key,label,placeholder]) => <label key={key}>{label}<input aria-invalid={showValidation && !form[key].trim()} value={form[key]} placeholder={placeholder} onChange={e => { setForm({ ...form, [key]: e.target.value }); setShowValidation(false); }} /></label>)}</div>{showValidation && <p className="form-error">Add these four details to continue.</p>}<div className="onboard-footer"><button className="primary-button" disabled={!canContinue} onClick={() => setStep(2)}>Continue</button></div></> : <><h1>Bring in what you have</h1><p className="subtitle">Choose what you already have. You’ll review every detail before it becomes part of the plan.</p><div>{sources.map(([id,title,copy,Icon]) => <button key={id} aria-pressed={selected.includes(id)} className={`inai-card choice-card ${selected.includes(id) ? 'selected' : ''}`} onClick={() => toggle(id)}><span className="card-icon"><Icon size={21}/></span><span className="card-content"><b>{title}</b><span>{copy}</span></span><span className="selection-mark">{selected.includes(id) ? '✓' : '+'}</span></button>)}</div><div className="onboard-footer"><button className="primary-button" onClick={() => setStep(3)}>Review setup</button><button className="ghost-button" onClick={() => setStep(3)}>Skip for now</button></div></>}
+    {step === 1 ? <><h1>Let’s set up the wedding</h1><p className="subtitle">Start with the two people getting married. You can add everyone else once the plan is ready.</p><div className="onboard-fields">{([['brideName',"Bride’s name",profileName || 'Priya'],['groomName',"Groom’s name",'Arjun'],['dateLabel','When is it? (a rough date is fine)','December 2026'],['city','City','Chennai']] as const).map(([key,label,placeholder]) => <label key={key}>{label}<input aria-invalid={showValidation && !form[key].trim()} value={form[key]} placeholder={placeholder} onChange={e => { setForm({ ...form, [key]: e.target.value }); setShowValidation(false); }} /></label>)}</div>{showValidation && <p className="form-error">Add these four details to continue.</p>}<div className="onboard-footer"><button className="primary-button" disabled={!canContinue} onClick={() => setStep(2)}>Continue</button></div></> : <><h1>Bring in what you have</h1><p className="subtitle">Choose what you already have. You’ll review every detail before it becomes part of the plan.</p><div>{sources.map(([id,title,copy,Icon]) => <button key={id} aria-pressed={selected.includes(id)} className={`inai-card choice-card ${selected.includes(id) ? 'selected' : ''}`} onClick={() => toggle(id)}><span className="card-icon"><Icon size={21}/></span><span className="card-content"><b>{title}</b><span>{copy}</span></span><span className="selection-mark">{selected.includes(id) ? '✓' : '+'}</span></button>)}</div><div className="onboard-footer"><button className="primary-button" onClick={() => setStep(3)}>Review setup</button><button className="ghost-button" onClick={() => setStep(3)}>Skip for now</button></div></>}
   </div>;
 }

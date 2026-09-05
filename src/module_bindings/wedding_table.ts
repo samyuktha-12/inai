@@ -13,8 +13,8 @@ import {
 export default __t.row({
   id: __t.u64().primaryKey(),
   createdBy: __t.identity().name("created_by"),
-  primaryName: __t.string().name("primary_name"),
-  partnerName: __t.string().name("partner_name"),
+  brideName: __t.string().name("bride_name"),
+  groomName: __t.string().name("groom_name"),
   city: __t.string(),
   dateLabel: __t.string().name("date_label"),
   state: __t.string(),

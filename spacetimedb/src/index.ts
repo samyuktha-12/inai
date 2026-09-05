@@ -30,14 +30,16 @@ const participant = table(
     connected: t.bool(),
     role: t.string().default('guest'),
     side: t.option(t.string()).default(undefined),
+    // E.164 phone number, used to resolve a voice caller who has no app
+    // identity of their own (e.g. a parent) to their participant row.
+    phone: t.option(t.string()).default(undefined),
+    // These fields are appended so existing participant rows migrate safely.
     dateOfBirth: t.option(t.string()).default(undefined),
+    gender: t.option(t.string()).default(undefined),
     mealPreference: t.option(t.string()).default(undefined),
     profileState: t.string().default('unknown'),
     profileSource: t.string().default('manual'),
     profileUpdatedAt: t.option(t.timestamp()).default(undefined),
-    // E.164 phone number, used to resolve a voice caller who has no app
-    // identity of their own (e.g. a parent) to their participant row.
-    phone: t.option(t.string()).default(undefined),
   }
 );
 
@@ -93,8 +95,8 @@ const wedding = table(
   {
     id: t.u64().primaryKey().autoInc(),
     createdBy: t.identity(),
-    primaryName: t.string(),
-    partnerName: t.string(),
+    brideName: t.string(),
+    groomName: t.string(),
     city: t.string(),
     dateLabel: t.string(),
     state: t.string().default('confirmed'),
@@ -157,12 +159,12 @@ const decision = table(
   { name: 'decision', public: true },
   {
     id: t.u64().primaryKey().autoInc(),
-    weddingId: t.option(t.u64()).default(undefined),
     title: t.string(),
     createdBy: t.identity(),
     createdAt: t.timestamp(),
     deciderIdentity: t.option(t.identity()).default(undefined),
     lockedOptionId: t.option(t.u64()).default(undefined),
+    weddingId: t.option(t.u64()).default(undefined),
   }
 );
 
@@ -203,7 +205,6 @@ const task = table(
   { name: 'task', public: true },
   {
     id: t.u64().primaryKey().autoInc(),
-    weddingId: t.option(t.u64()).default(undefined),
     title: t.string(),
     ownerIdentity: t.identity(),
     done: t.bool(),
@@ -217,6 +218,7 @@ const task = table(
     reportedBy: t.option(t.identity()).default(undefined),
     confidence: t.option(t.f32()).default(undefined),
     reportedAt: t.option(t.timestamp()).default(undefined),
+    weddingId: t.option(t.u64()).default(undefined),
   }
 );
 
@@ -232,6 +234,12 @@ const webhook_secret = table(
 );
 
 const spacetimedb = schema({
+  // Keep the deployed tables in their original order. New tables append below.
+  task,
+  decision,
+  webhook_secret,
+  vote,
+  decision_option,
   participant,
   member,
   wedding_invitation,
@@ -239,11 +247,6 @@ const spacetimedb = schema({
   event,
   expense,
   ingest_source,
-  decision,
-  decision_option,
-  vote,
-  task,
-  webhook_secret,
 });
 export default spacetimedb;
 
@@ -283,6 +286,7 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
       role: roleForNewParticipant(ctx),
       side: undefined,
       dateOfBirth: undefined,
+      gender: undefined,
       mealPreference: undefined,
       profileState: 'unknown',
       profileSource: 'manual',
@@ -313,6 +317,7 @@ export const setName = spacetimedb.reducer(
         role: roleForNewParticipant(ctx),
         side: undefined,
         dateOfBirth: undefined,
+        gender: undefined,
         mealPreference: undefined,
         profileState: 'unknown',
         profileSource: 'manual',
@@ -329,8 +334,8 @@ export const setName = spacetimedb.reducer(
  */
 export const createWedding = spacetimedb.reducer(
   {
-    primaryName: t.string(),
-    partnerName: t.string(),
+    brideName: t.string(),
+    groomName: t.string(),
     city: t.string(),
     dateLabel: t.string(),
     sourceKinds: t.array(t.string()),
@@ -467,11 +472,12 @@ export const acceptWeddingInvitation = spacetimedb.reducer(
 );
 
 export const updateMyProfile = spacetimedb.reducer(
-  { name: t.string(), dateOfBirth: t.option(t.string()), mealPreference: t.option(t.string()) },
-  (ctx, { name, dateOfBirth, mealPreference }) => {
+  { name: t.string(), dateOfBirth: t.option(t.string()), gender: t.option(t.string()), mealPreference: t.option(t.string()) },
+  (ctx, { name, dateOfBirth, gender, mealPreference }) => {
     const person = ctx.db.participant.identity.find(ctx.sender);
     if (!person) throw new SenderError('sign in before updating your profile');
-    ctx.db.participant.identity.update({ ...person, name, dateOfBirth, mealPreference, profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
+    if (gender !== undefined && !['woman', 'man', 'non_binary', 'prefer_not_to_say'].includes(gender)) throw new SenderError('invalid gender');
+    ctx.db.participant.identity.update({ ...person, name, dateOfBirth, gender, mealPreference, profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
   }
 );
 

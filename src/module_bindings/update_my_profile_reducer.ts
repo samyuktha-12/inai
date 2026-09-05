@@ -13,5 +13,6 @@ import {
 export default {
   name: __t.string(),
   dateOfBirth: __t.option(__t.string()),
+  gender: __t.option(__t.string()),
   mealPreference: __t.option(__t.string()),
 };

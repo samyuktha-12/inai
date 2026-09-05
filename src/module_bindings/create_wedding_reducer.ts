@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default {
-  primaryName: __t.string(),
-  partnerName: __t.string(),
+  brideName: __t.string(),
+  groomName: __t.string(),
   city: __t.string(),
   dateLabel: __t.string(),
   sourceKinds: __t.array(__t.string()),
