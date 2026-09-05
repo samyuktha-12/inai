@@ -94,12 +94,12 @@ export const Expense = __t.object("Expense", {
   label: __t.string(),
   amountPaise: __t.i64(),
   paid: __t.bool(),
-  vendorId: __t.option(__t.u64()),
   state: __t.string(),
   source: __t.string(),
   updatedBy: __t.identity(),
   confidence: __t.f32(),
   updatedAt: __t.timestamp(),
+  vendorId: __t.option(__t.u64()),
 });
 export type Expense = __Infer<typeof Expense>;
 
@@ -128,6 +128,20 @@ export const Member = __t.object("Member", {
   updatedAt: __t.timestamp(),
 });
 export type Member = __Infer<typeof Member>;
+
+export const MoodItem = __t.object("MoodItem", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  title: __t.string(),
+  note: __t.string(),
+  palette: __t.string(),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type MoodItem = __Infer<typeof MoodItem>;
 
 export const Participant = __t.object("Participant", {
   identity: __t.identity(),

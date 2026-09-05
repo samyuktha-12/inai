@@ -81,6 +81,7 @@ import EventRow from "./event_table";
 import ExpenseRow from "./expense_table";
 import IngestSourceRow from "./ingest_source_table";
 import MemberRow from "./member_table";
+import MoodItemRow from "./mood_item_table";
 import ParticipantRow from "./participant_table";
 import TaskRow from "./task_table";
 import VendorRow from "./vendor_table";
@@ -220,6 +221,20 @@ const tablesSchema = __schema({
       { name: 'member_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MemberRow),
+  moodItem: __table({
+    name: 'mood_item',
+    indexes: [
+      { accessor: 'id', name: 'mood_item_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'mood_item_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'mood_item_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MoodItemRow),
   participant: __table({
     name: 'participant',
     indexes: [
@@ -397,6 +412,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "decision_option": Omit<typeof tablesSchema.schemaType.tables["decisionOption"], "accessorName"> & { readonly accessorName: "decision_option" };
     /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
     readonly "ingest_source": Omit<typeof tablesSchema.schemaType.tables["ingestSource"], "accessorName"> & { readonly accessorName: "ingest_source" };
+    /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */
+    readonly "mood_item": Omit<typeof tablesSchema.schemaType.tables["moodItem"], "accessorName"> & { readonly accessorName: "mood_item" };
     /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
     readonly "vendor_consent": Omit<typeof tablesSchema.schemaType.tables["vendorConsent"], "accessorName"> & { readonly accessorName: "vendor_consent" };
     /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
@@ -427,6 +444,7 @@ const tableAccessorAliases = {
   "custom_wedding_agent": "customWeddingAgent",
   "decision_option": "decisionOption",
   "ingest_source": "ingestSource",
+  "mood_item": "moodItem",
   "vendor_consent": "vendorConsent",
   "wedding_agent": "weddingAgent",
   "wedding_agent_setting": "weddingAgentSetting",
@@ -459,6 +477,8 @@ export type DbView = __DbViewBase & {
   readonly "decision_option": __DbViewBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __DbViewBase["ingestSource"];
+  /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */
+  readonly "mood_item": __DbViewBase["moodItem"];
   /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
   readonly "vendor_consent": __DbViewBase["vendorConsent"];
   /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */
@@ -479,6 +499,8 @@ export type Tables = __TablesBase & {
   readonly "decision_option": __TablesBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __TablesBase["ingestSource"];
+  /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */
+  readonly "mood_item": __TablesBase["moodItem"];
   /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
   readonly "vendor_consent": __TablesBase["vendorConsent"];
   /** @deprecated Use `weddingAgent` instead. This alias will be removed in the next major version. */

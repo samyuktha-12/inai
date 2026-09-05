@@ -274,6 +274,23 @@ const custom_wedding_agent = table(
   }
 );
 
+// Pinterest-derived inspiration is always a reviewable draft, never a choice.
+const mood_item = table(
+  { name: 'mood_item', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    title: t.string(),
+    note: t.string(),
+    palette: t.string(),
+    state: t.string().default('reported'),
+    source: t.string().default('pinterest'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
 // The planning group chat is a shared, human-authored coordination record.
 // Agent-written summaries belong in proposals, never in this chat as facts.
 const wedding_message = table(
@@ -415,6 +432,7 @@ const spacetimedb = schema({
   wedding_agent,
   wedding_agent_setting,
   custom_wedding_agent,
+  mood_item,
   wedding_message,
   coordinator_request,
 });
@@ -719,6 +737,32 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
   addEvent('Mehendi evening', 'The Leela Palace lawn');
   addEvent('Sangeet night', 'The Leela Palace ballroom');
   addEvent('Wedding ceremony', 'Kapaleeshwarar Temple courtyard');
+  if (![...ctx.db.budget.iter()].some(item => item.weddingId === weddingId)) {
+    ctx.db.budget.insert({ id: 0n, weddingId, amountPaise: 300000000n, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  const planner = [...ctx.db.participant.iter()].find(person => person.name === 'Anonymous User');
+  if (planner && ![...ctx.db.member.by_wedding_identity.filter([weddingId, planner.identity])].length) {
+    ctx.db.participant.identity.update({ ...planner, name: 'Ananya Mehta', profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
+    ctx.db.member.insert({ id: 0n, weddingId, identity: planner.identity, role: 'planner', side: undefined, joinedAt: ctx.timestamp, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  for (const [name, category, bookingState, note] of [
+    ['Nila Blooms', 'Floral decor', 'booked', 'Jasmine-forward mandap and entrance florals'],
+    ['Saffron Table', 'Catering', 'selected', 'South Indian lunch and live filter-coffee bar'],
+    ['Frame Story Studio', 'Photography', 'booked', 'Two-day photo and short wedding film'],
+    ['Raaga Collective', 'Music', 'shortlisted', 'Sangeet band with family song support'],
+  ] as const) {
+    if ([...ctx.db.vendor.iter()].some(item => item.weddingId === weddingId && item.name === name)) continue;
+    ctx.db.vendor.insert({ id: 0n, weddingId, name, category, bookingState, note, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+  for (const [title, note, palette] of [
+    ['Soft jasmine ceremony', 'White jasmine, warm ivory, and a quiet brass glow.', '#f4efe2,#d8c79f,#85765c'],
+    ['Marigold gathering', 'A bright marigold moment for the mehendi entrance.', '#f5cf5c,#d98632,#7c5633'],
+    ['Indigo sangeet', 'Deep indigo textiles with candlelight and mirrored details.', '#25375c,#7d91bd,#d8c8ac'],
+    ['Coconut welcome', 'Tender coconut, cane, and leafy greens for guests arriving.', '#dce7d4,#a6b98d,#e8d7b4'],
+  ] as const) {
+    if ([...ctx.db.mood_item.iter()].some(item => item.weddingId === weddingId && item.title === title)) continue;
+    ctx.db.mood_item.insert({ id: 0n, weddingId, title, note, palette, state: 'reported', source: 'pinterest', updatedBy: ctx.sender, confidence: 0.9, updatedAt: ctx.timestamp });
+  }
   for (const [category, label, amountPaise, paid] of [
     ['Venue', 'Leela Palace ceremony spaces', 8500000n, true],
     ['Catering', 'South Indian lunch for 240 guests', 6240000n, false],

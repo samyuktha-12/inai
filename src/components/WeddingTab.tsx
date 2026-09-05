@@ -194,6 +194,12 @@ function ContactImport({ weddingId }: { weddingId: bigint }) {
   return <section className="contact-import panel"><Upload color="#087d6b"/><h2>Import contacts</h2><p>Choose a contacts CSV, spreadsheet, or phone export. The import worker will turn it into reviewable guest records; nobody is invited automatically.</p><label className="file-picker"><input type="file" accept=".csv,.tsv,.xlsx,.xls,text/csv" onChange={event => { setFileName(event.target.files?.[0]?.name ?? ''); setQueued(false); }} /><Upload size={16}/>{fileName || 'Choose a contacts file'}</label>{fileName && <button type="button" className="primary-button" onClick={queue} disabled={queued}>{queued ? 'Import queued for review' : 'Queue contact import'}</button>}</section>;
 }
 
+function MoodBoard({ weddingId }: { weddingId: bigint }) {
+  const [moodItems] = useTable(tables.moodItem);
+  const items = moodItems.filter(item => item.weddingId === weddingId);
+  return <section className="mood-board"><div className="mood-board-heading"><div><p className="section-label">Pinterest inspiration</p><h2>A feeling to build from</h2><p>These are source ideas, not final choices. Bring any one into Decide when the family is ready.</p></div><span className="mood-review-badge">Needs review</span></div>{items.length ? <div className="mood-grid">{items.map(item => <article className="mood-card" key={String(item.id)}><div className="mood-swatch" style={{ background: `linear-gradient(135deg, ${item.palette})` }} /><div><small>Pinterest · needs review</small><h3>{item.title}</h3><p>{item.note}</p></div></article>)}</div> : <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>}</section>;
+}
+
 function AddCustomAgent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void }) {
   const createCustomWeddingAgent = useReducer(reducers.createCustomWeddingAgent);
   const [name, setName] = useState('');
@@ -286,7 +292,7 @@ export default function WeddingTab({ weddingId }: { weddingId: bigint }) {
     calendar: <CalendarItinerary wedding={wedding} events={weddingEvents} />,
     events: <><div className="view-action-heading"><p className="section-label">Events</p><button type="button" className="outline-action" onClick={() => setAddingEvent(true)}><Plus size={16}/> Add event</button></div>{addingEvent && <AddEvent weddingId={weddingId} onDone={() => setAddingEvent(false)} />}{weddingEvents.length ? weddingEvents.map(event => <div className={`inai-card ${event.state === 'reported' ? 'reported' : ''}`} key={String(event.id)}><span className="card-icon"><CalendarDays size={21}/></span><span className="card-content"><b>{event.title}</b><span>{event.venue ?? 'Venue to confirm'}{event.state === 'reported' ? ' · needs confirmation' : ''}</span></span></div>) : !addingEvent && <div className="panel"><CalendarDays color="#087d6b"/><h2>Start with the events</h2><p>Add an event now or bring in a calendar export. Your group reviews every new detail.</p></div>}</>,
     guests: <ContactImport weddingId={weddingId} />,
-    mood: <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>,
+    mood: <MoodBoard weddingId={weddingId} />,
     connect: <ConnectWedding weddingId={weddingId}/>,
   };
   return <div><p className="eyebrow">{wedding ? `${wedding.city} · ${wedding.dateLabel}` : 'Your shared plan'}</p><h1 className="headline">The wedding</h1><div className="wedding-tabs">{([['calendar', 'Calendar'], ['events', 'Events'], ['budget', 'Budget'], ['guests', 'Guests'], ['mood', 'Mood'], ['connect', 'Connect']] as const).map(([key, label]) => <button className={view === key ? 'active' : ''} key={key} onClick={() => setView(key)}>{label}</button>)}</div>{view === 'budget' ? <BudgetWorkspace weddingId={weddingId} /> : items[view]}</div>;
