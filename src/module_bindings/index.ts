@@ -44,6 +44,7 @@ import CreateWeddingReducer from "./create_wedding_reducer";
 import CreateWeddingInvitationReducer from "./create_wedding_invitation_reducer";
 import LinkPhoneReducer from "./link_phone_reducer";
 import LockDecisionReducer from "./lock_decision_reducer";
+import RequestCoordinatorActionReducer from "./request_coordinator_action_reducer";
 import RequestIngestReducer from "./request_ingest_reducer";
 import SendWeddingMessageReducer from "./send_wedding_message_reducer";
 import SetDeciderReducer from "./set_decider_reducer";
@@ -60,6 +61,7 @@ import UpdateMyProfileReducer from "./update_my_profile_reducer";
 // Import all procedure arg schemas
 
 // Import all table schema definitions
+import CoordinatorRequestRow from "./coordinator_request_table";
 import DecisionRow from "./decision_table";
 import DecisionOptionRow from "./decision_option_table";
 import EventRow from "./event_table";
@@ -77,6 +79,21 @@ import WeddingMessageRow from "./wedding_message_table";
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  coordinatorRequest: __table({
+    name: 'coordinator_request',
+    indexes: [
+      { accessor: 'id', name: 'coordinator_request_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding_status', name: 'coordinator_request_wedding_id_status_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+        'status',
+      ] },
+    ],
+    constraints: [
+      { name: 'coordinator_request_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, CoordinatorRequestRow),
   decision: __table({
     name: 'decision',
     indexes: [
@@ -253,6 +270,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_wedding_invitation", CreateWeddingInvitationReducer),
   __reducerSchema("link_phone", LinkPhoneReducer),
   __reducerSchema("lock_decision", LockDecisionReducer),
+  __reducerSchema("request_coordinator_action", RequestCoordinatorActionReducer),
   __reducerSchema("request_ingest", RequestIngestReducer),
   __reducerSchema("send_wedding_message", SendWeddingMessageReducer),
   __reducerSchema("set_decider", SetDeciderReducer),
@@ -273,6 +291,8 @@ const proceduresSchema = __procedures(
 
 type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "tables"> & {
   tables: typeof tablesSchema.schemaType.tables & {
+    /** @deprecated Use `coordinatorRequest` instead. This alias will be removed in the next major version. */
+    readonly "coordinator_request": Omit<typeof tablesSchema.schemaType.tables["coordinatorRequest"], "accessorName"> & { readonly accessorName: "coordinator_request" };
     /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
     readonly "decision_option": Omit<typeof tablesSchema.schemaType.tables["decisionOption"], "accessorName"> & { readonly accessorName: "decision_option" };
     /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
@@ -299,6 +319,7 @@ const REMOTE_MODULE = {
 >;
 
 const tableAccessorAliases = {
+  "coordinator_request": "coordinatorRequest",
   "decision_option": "decisionOption",
   "ingest_source": "ingestSource",
   "wedding_agent": "weddingAgent",
@@ -323,6 +344,8 @@ function __withTableAccessorAliases<T extends object>(target: T, freeze = false)
 
 type __DbViewBase = __DbConnectionImpl<typeof REMOTE_MODULE>["db"];
 export type DbView = __DbViewBase & {
+  /** @deprecated Use `coordinatorRequest` instead. This alias will be removed in the next major version. */
+  readonly "coordinator_request": __DbViewBase["coordinatorRequest"];
   /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
   readonly "decision_option": __DbViewBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
@@ -335,6 +358,8 @@ export type DbView = __DbViewBase & {
 
 type __TablesBase = __QueryBuilder<typeof tablesSchema.schemaType>;
 export type Tables = __TablesBase & {
+  /** @deprecated Use `coordinatorRequest` instead. This alias will be removed in the next major version. */
+  readonly "coordinator_request": __TablesBase["coordinatorRequest"];
   /** @deprecated Use `decisionOption` instead. This alias will be removed in the next major version. */
   readonly "decision_option": __TablesBase["decisionOption"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */

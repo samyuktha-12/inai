@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, MessageCircle, Send, Users, X } from 'lucide-react';
+import { Timestamp } from 'spacetimedb';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 
@@ -17,13 +18,18 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
   const [participants] = useTable(tables.participant);
   const [members] = useTable(tables.member);
   const sendWeddingMessage = useReducer(reducers.sendWeddingMessage);
+  const requestCoordinatorAction = useReducer(reducers.requestCoordinatorAction);
   const [draft, setDraft] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [command, setCommand] = useState<'remind' | 'followup' | null>(null);
+  const [targetHex, setTargetHex] = useState('');
+  const [remindAt, setRemindAt] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
   const myHex = identity?.toHexString();
   const chatMessages = useMemo(() => messages.filter(message => message.weddingId === weddingId).sort((a, b) => Number(a.sentAt.microsSinceUnixEpoch - b.sentAt.microsSinceUnixEpoch)), [messages, weddingId]);
   const memberCount = members.filter(member => member.weddingId === weddingId).length;
+  const weddingMembers = useMemo(() => members.filter(member => member.weddingId === weddingId).map(member => participants.find(person => person.identity.equals(member.identity))).filter((person): person is NonNullable<typeof person> => Boolean(person)), [members, participants, weddingId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [chatMessages.length]);
 
@@ -38,13 +44,31 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
     setSendError(null);
     setIsSending(true);
     try {
-      await sendWeddingMessage({ weddingId, body });
+      if (command) {
+        const target = weddingMembers.find(person => person.identity.toHexString() === targetHex);
+        if (!target) throw new Error('Choose who the coordinator should contact.');
+        const scheduledFor = command === 'remind' && remindAt
+          ? new Timestamp(BigInt(new Date(remindAt).getTime()) * 1000n)
+          : undefined;
+        await requestCoordinatorAction({ weddingId, kind: command, targetIdentity: target.identity, instruction: body, scheduledFor });
+        setCommand(null);
+        setTargetHex('');
+        setRemindAt('');
+      } else {
+        await sendWeddingMessage({ weddingId, body });
+      }
       setDraft('');
     } catch (error) {
       setSendError(error instanceof Error ? error.message : 'Your message could not be sent. Please try again.');
     } finally {
       setIsSending(false);
     }
+  };
+
+  const selectCommand = (kind: 'remind' | 'followup') => {
+    setCommand(kind);
+    setDraft('');
+    setSendError(null);
   };
 
   const panel = <section className={`group-chat ${embedded ? 'group-chat--embedded' : ''}`} role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : true} aria-labelledby="group-chat-title" onClick={event => event.stopPropagation()}>
@@ -67,8 +91,11 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
         <div ref={endRef} />
       </div>
       <form className="group-chat-compose" onSubmit={event => { event.preventDefault(); void send(); }}>
-        <input value={draft} onChange={event => { setDraft(event.target.value); setSendError(null); }} maxLength={2000} placeholder="Message the wedding group" aria-label="Message the wedding group" autoFocus />
+        {command && <div className="chat-command-fields"><span className="chat-command-label">/{command === 'remind' ? 'remind' : 'followup'}</span><select value={targetHex} onChange={event => setTargetHex(event.target.value)} aria-label="Person to contact"><option value="">Choose a person</option>{weddingMembers.map(person => <option key={person.identity.toHexString()} value={person.identity.toHexString()}>{person.name}</option>)}</select>{command === 'remind' && <input type="datetime-local" value={remindAt} onChange={event => setRemindAt(event.target.value)} aria-label="Reminder time (optional)" />}</div>}
+        {draft === '/' && !command && <div className="chat-command-menu" role="listbox" aria-label="Coordinator commands"><button type="button" onClick={() => selectCommand('remind')}><b>/remind</b><span>Ask the coordinator to remind someone</span></button><button type="button" onClick={() => selectCommand('followup')}><b>/followup</b><span>Ask the coordinator to follow up with someone</span></button></div>}
+        <input value={draft} onChange={event => { setDraft(event.target.value); setSendError(null); }} maxLength={2000} placeholder={command ? command === 'remind' ? 'What should the coordinator remind them about?' : 'What should the coordinator follow up about?' : 'Message the wedding group — type / for coordinator help'} aria-label={command ? 'Coordinator request' : 'Message the wedding group'} autoFocus />
         <button type="submit" disabled={!draft.trim() || isSending || !isActive} aria-label="Send message"><Send size={18} /></button>
+        {command && <p className="chat-command-note">This saves a request for the coordinator. It will only contact this person about their open item.</p>}
         {sendError && <p className="group-chat-send-error" role="alert">{sendError}</p>}
       </form>
     </section>;

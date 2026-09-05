@@ -165,9 +165,9 @@ const ingest_source = table(
   }
 );
 
-// Agents are explicitly added by a wedding administrator. This is an
-// assignment record, not a user identity: agents never become accountable
-// members and may only propose or coordinate work in the external agent layer.
+// This is an assignment record, not a user identity: agents never become
+// accountable members and may only propose or coordinate work in the external
+// agent layer. Every wedding starts with its Coordinator enabled.
 const wedding_agent = table(
   { name: 'wedding_agent', public: true, indexes: [{ accessor: 'by_wedding_kind', algorithm: 'btree', columns: ['weddingId', 'kind'] }] },
   {
@@ -198,6 +198,31 @@ const wedding_message = table(
     updatedBy: t.identity(),
     confidence: t.f32().default(1),
     updatedAt: t.timestamp(),
+  }
+);
+
+// A human-requested item for the coordinator. This is deliberately a durable
+// request, not permission for a bot to contact anyone: the agent layer must
+// still apply ownership, channel-preference, frequency-cap, and confirmation
+// rules before taking any outbound action.
+const coordinator_request = table(
+  { name: 'coordinator_request', public: true, indexes: [{ accessor: 'by_wedding_status', algorithm: 'btree', columns: ['weddingId', 'status'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    kind: t.string(),
+    targetIdentity: t.identity(),
+    instruction: t.string(),
+    scheduledFor: t.option(t.timestamp()).default(undefined),
+    status: t.string().default('open'),
+    state: t.string().default('confirmed'),
+    source: t.string().default('manual'),
+    requestedBy: t.identity(),
+    requestedAt: t.timestamp(),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+    taskId: t.option(t.u64()).default(undefined),
   }
 );
 
@@ -295,6 +320,7 @@ const spacetimedb = schema({
   ingest_source,
   wedding_agent,
   wedding_message,
+  coordinator_request,
 });
 export default spacetimedb;
 
@@ -433,6 +459,20 @@ export const createWedding = spacetimedb.reducer(
       confidence: 1,
       updatedAt: ctx.timestamp,
     });
+    // The Coordinator is responsible for organising and drafting, never
+    // accountable for a decision or commitment. It starts enabled so slash
+    // requests have a single, durable destination from the first day.
+    ctx.db.wedding_agent.insert({
+      id: 0n,
+      weddingId: created.id,
+      kind: 'coordinator',
+      enabled: true,
+      state: 'confirmed',
+      source: 'manual',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
     seedDecision(ctx, created.id, 'Which mandap feels right?', ['Floral arch', 'Draped cloth', 'Temple style']);
   }
 );
@@ -539,6 +579,51 @@ export const sendWeddingMessage = spacetimedb.reducer(
       sentAt: ctx.timestamp,
       state: 'confirmed',
       source: 'manual',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+    });
+  }
+);
+
+export const requestCoordinatorAction = spacetimedb.reducer(
+  { weddingId: t.u64(), kind: t.string(), targetIdentity: t.identity(), instruction: t.string(), scheduledFor: t.option(t.timestamp()) },
+  (ctx, { weddingId, kind, targetIdentity, instruction, scheduledFor }) => {
+    if (!membershipFor(ctx, weddingId)) throw new SenderError('only wedding members can request coordinator help');
+    if (!membershipFor(ctx, weddingId, targetIdentity)) throw new SenderError('choose someone in this wedding');
+    if (!targetIdentity.equals(ctx.sender) && !canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can request a follow-up for someone else');
+    if (!['remind', 'followup'].includes(kind)) throw new SenderError('invalid coordinator request');
+    const request = instruction.trim();
+    if (!request || request.length > 2000) throw new SenderError('request must be between 1 and 2000 characters');
+    // The request creates the owned work item first. The agent layer must
+    // only contact this owner about this still-open task.
+    const task = ctx.db.task.insert({
+      id: 0n,
+      weddingId,
+      title: `${kind === 'remind' ? 'Reminder' : 'Follow up'}: ${request}`,
+      ownerIdentity: targetIdentity,
+      done: false,
+      createdAt: ctx.timestamp,
+      dueAt: scheduledFor,
+      state: 'confirmed',
+      source: 'manual',
+      reportedBy: undefined,
+      confidence: undefined,
+      reportedAt: undefined,
+    });
+    ctx.db.coordinator_request.insert({
+      id: 0n,
+      weddingId,
+      kind,
+      targetIdentity,
+      taskId: task.id,
+      instruction: request,
+      scheduledFor,
+      status: 'open',
+      state: 'confirmed',
+      source: 'manual',
+      requestedBy: ctx.sender,
+      requestedAt: ctx.timestamp,
       updatedBy: ctx.sender,
       confidence: 1,
       updatedAt: ctx.timestamp,

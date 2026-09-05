@@ -10,6 +10,25 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const CoordinatorRequest = __t.object("CoordinatorRequest", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  kind: __t.string(),
+  targetIdentity: __t.identity(),
+  instruction: __t.string(),
+  scheduledFor: __t.option(__t.timestamp()),
+  status: __t.string(),
+  state: __t.string(),
+  source: __t.string(),
+  requestedBy: __t.identity(),
+  requestedAt: __t.timestamp(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+  taskId: __t.option(__t.u64()),
+});
+export type CoordinatorRequest = __Infer<typeof CoordinatorRequest>;
+
 export const Decision = __t.object("Decision", {
   id: __t.u64(),
   title: __t.string(),
