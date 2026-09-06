@@ -104,11 +104,50 @@ the flowers are arranged. Is that right?” A successful response means
 }
 ```
 
-This adds a single **Call note · needs review** item to the shared wedding
-chat. Both the note and suggestion are saved as `reported`; the endpoint does
-not create work, place a call, contact a vendor, or update a confirmed plan.
+This adds a clearly labelled **call update** to the shared wedding chat. Both
+the note and suggestion are saved as `reported`; the endpoint does not create
+work, place a call, contact a vendor, or update a confirmed plan.
 Do not call it unless the caller has heard and agreed to the read-back of the
 note. Omit `weddingId` only when the caller belongs to exactly one wedding.
+
+### `request_call_action`
+
+- Lifecycle: **during conversation** or **on_end**, only after an explicit
+  read-back and yes from the caller.
+- Method: `POST`
+- URL: `https://maincloud.spacetimedb.com/v1/database/DATABASE_ID/route/voice/action`
+- Header: `Authorization: Bearer {{INAI_VOICE_WEBHOOK_SECRET}}`
+
+The caller can start a family poll:
+
+```json
+{
+  "phone": "<Sarvam User Identifier>",
+  "weddingId": "<wedding id from get_wedding_context>",
+  "action": "poll",
+  "question": "Which entrance song should we use?",
+  "options": ["Song A", "Song B"],
+  "confirmed": true
+}
+```
+
+Or request a reminder about one of their own `openTasks`:
+
+```json
+{
+  "phone": "<Sarvam User Identifier>",
+  "weddingId": "<wedding id from get_wedding_context>",
+  "action": "remind",
+  "taskId": "<caller-owned open task id>",
+  "instruction": "Remind me tomorrow to send the final guest count.",
+  "confirmed": true
+}
+```
+
+Never invent `confirmed: true`: repeat the exact poll or reminder in plain
+language and wait for the caller to say yes. A poll is only a proposal; a
+reminder is attached to an existing caller-owned task and remains subject to
+the coordinator's ownership, channel, and frequency checks before contact.
 
 ## Family help line instructions
 
@@ -127,6 +166,11 @@ Paste and adapt this into the agent instructions:
 > settled. If the caller asks for an answer not in the live context, say you
 > will ask the family to confirm it. Do not mention internal tools, databases,
 > confidence, provenance, or workflows.
+
+> If the caller wants a poll, collect a short question and two to twelve short
+> options, read them back, and ask for yes before using `request_call_action`.
+> If the caller asks for a reminder, offer only their own open tasks, collect
+> the reminder wording, read it back, and ask for yes before using the tool.
 
 ## Agent-specific additions
 

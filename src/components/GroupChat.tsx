@@ -34,6 +34,18 @@ function messageDay(value: { microsSinceUnixEpoch: bigint }) {
   return new Date(Number(value.microsSinceUnixEpoch / 1000n)).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
+function pollDetails(body: string) {
+  const match = /^(?:New poll|Poll): ([^\n]+)\nOptions: (.+)$/.exec(body);
+  return match ? { question: match[1], options: match[2].split(' · ').filter(Boolean) } : undefined;
+}
+
+function callUpdateDetails(body: string) {
+  const current = /^Call update\n([\s\S]+?)\n\nNext step to review\n([\s\S]+)$/.exec(body);
+  if (current) return { note: current[1], suggestion: current[2] };
+  const legacy = /^Call note from [^\n]+ \(needs review\)\n([\s\S]+?)\n\nSuggested next step \(needs review\)\n([\s\S]+)$/.exec(body);
+  return legacy ? { note: legacy[1], suggestion: legacy[2] } : undefined;
+}
+
 function ReminderSchedule({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const parsed = value ? new Date(value) : undefined;
   const today = new Date();
@@ -139,13 +151,15 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
         {isGroupPreview ? <div className="group-chat-empty group-preview"><Users size={26}/><b>{selectedGroup.label}</b><p>{selectedGroup.detail}. We will connect this to secure group membership when the backend is ready.</p></div> : !messagesReady ? <div className="group-chat-empty"><MessageCircle size={26} /><b>Loading your conversation</b><p>Bringing the family’s planning notes together.</p></div> : chatMessages.length === 0 ? <div className="group-chat-empty"><MessageCircle size={26} /><b>Start where you are</b><p>Share an update, a question, or something the family should see.</p></div> : chatMessages.map((message, index) => {
           const sender = participants.find(person => person.identity.equals(message.sentBy));
           const name = sender?.name ?? 'Wedding member';
-          const own = message.sentBy.toHexString() === myHex;
+          const poll = pollDetails(message.body);
+          const callUpdate = message.source === 'voice_call' ? callUpdateDetails(message.body) : undefined;
+          const own = message.sentBy.toHexString() === myHex && !poll && !callUpdate;
           const previous = chatMessages[index - 1];
           const newDay = !previous || messageDay(previous.sentAt) !== messageDay(message.sentAt);
           const hasGap = !!previous && Number(message.sentAt.microsSinceUnixEpoch - previous.sentAt.microsSinceUnixEpoch) > 5 * 60 * 1_000_000;
-          return <div key={String(message.id)}>{newDay && <p className="chat-day"><span>{messageDay(message.sentAt)}</span></p>}{hasGap && !newDay && <p className="chat-gap"><span>{messageTime(message.sentAt)}</span></p>}<article className={`group-chat-message ${own ? 'own' : ''} ${hasGap && !newDay ? 'spaced' : ''}`}>
+          return <div key={String(message.id)}>{newDay && <p className="chat-day"><span>{messageDay(message.sentAt)}</span></p>}{hasGap && !newDay && <p className="chat-gap"><span>{messageTime(message.sentAt)}</span></p>}<article className={`group-chat-message ${own ? 'own' : ''} ${poll || callUpdate ? 'activity' : ''} ${hasGap && !newDay ? 'spaced' : ''}`}>
             {!own && <span className="message-avatar" aria-hidden>{initials(name)}</span>}
-            <div className="message-bubble">{!own && <b>{name}</b>}{message.source === 'whatsapp' && <small className="imported-message-label">WhatsApp import · needs review</small>}{message.source === 'voice_call' && <small className="imported-message-label">Call note · needs review</small>}<p>{message.body}</p><time>{messageTime(message.sentAt)}</time></div>
+            <div className="message-bubble">{poll ? <div className="chat-activity chat-poll-activity"><small>{name} started a poll{message.source === 'voice_poll' ? ' by phone' : ''}</small><b>{poll.question}</b><div>{poll.options.map(option => <span key={option}>{option}</span>)}</div></div> : callUpdate ? <div className="chat-activity chat-call-activity"><small>Call update from {name} · needs review</small><p>{callUpdate.note}</p><div><b>Next step to review</b><span>{callUpdate.suggestion}</span></div></div> : <>{!own && <b>{name}</b>}{message.source === 'whatsapp' && <small className="imported-message-label">WhatsApp import · needs review</small>}<p>{message.body}</p></>}<time>{messageTime(message.sentAt)}</time></div>
           </article></div>;
         })}
         <div ref={endRef} />

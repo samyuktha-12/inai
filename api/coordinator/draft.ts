@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   }
 
   const ownerName = typeof body.ownerName === 'string' ? body.ownerName.trim() : '';
-  const kind = body.kind === 'remind' || body.kind === 'followup' ? body.kind : '';
+  const kind = body.kind === 'remind' || body.kind === 'followup' || body.kind === 'summarize' ? body.kind : '';
   const instruction = typeof body.instruction === 'string' ? body.instruction.trim() : '';
   const scheduledFor = typeof body.scheduledFor === 'string' ? body.scheduledFor : '';
   if (!ownerName || !kind || !instruction || instruction.length > MAX_INSTRUCTION_LENGTH) {
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       model: process.env.OPENAI_MODEL ?? 'gpt-4.1-mini',
-      instructions: 'You are Inai’s in-app wedding Coordinator. Draft one short, kind note for the named owner about their single open task. Do not claim you contacted anyone, make decisions, commit spending, contact a vendor, or send a message. Return plain text only.',
+      instructions: 'You are Inai’s in-app wedding Coordinator. For a reminder or follow-up, draft one short, kind note for the named owner about their single open task. For a summary, clearly separate confirmed updates from items that still need review. Do not claim you contacted anyone, make decisions, commit spending, contact a vendor, or send a message. Return plain text only.',
       input: `Person: ${ownerName}\nRequest: ${kind}\nTask: ${instruction}${scheduledFor ? `\nPlanned reminder time: ${scheduledFor}` : ''}`,
     }),
   });

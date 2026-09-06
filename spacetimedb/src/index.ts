@@ -542,12 +542,12 @@ export default spacetimedb;
 
 type Ctx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 
-function seedDecision(ctx: Ctx, weddingId: bigint, title: string, options: string[]) {
+function seedDecision(ctx: Ctx, weddingId: bigint, title: string, options: string[], createdBy = ctx.sender) {
   const inserted = ctx.db.decision.insert({
     id: 0n,
     weddingId,
     title,
-    createdBy: ctx.sender,
+    createdBy,
     createdAt: ctx.timestamp,
     deciderIdentity: undefined,
     lockedOptionId: undefined,
@@ -555,6 +555,7 @@ function seedDecision(ctx: Ctx, weddingId: bigint, title: string, options: strin
   for (const label of options) {
     ctx.db.decision_option.insert({ id: 0n, decisionId: inserted.id, label });
   }
+  return inserted;
 }
 
 const EVENT_TEMPLATES: Record<string, { title: string; checklist: string[] }> = {
@@ -760,7 +761,7 @@ export const createDecision = spacetimedb.reducer(
       sentBy: ctx.sender,
       sentAt: ctx.timestamp,
       state: 'confirmed',
-      source: 'chat',
+      source: 'poll',
       updatedBy: ctx.sender,
       confidence: 1,
       updatedAt: ctx.timestamp,
@@ -863,40 +864,48 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
   const priyaIdentity = [...ctx.db.participant.iter()].find(person => person.name === 'Priya')?.identity;
   const rahulIdentity = [...ctx.db.participant.iter()].find(person => person.name === 'Rahul')?.identity;
   if (!caller || !priyaIdentity || !rahulIdentity) throw new SenderError('demo participants were not found');
-  const has = (table: Iterable<{ weddingId: bigint; title?: string; label?: string }>, value: string) => [...table].some(row => row.weddingId === weddingId && (row.title === value || row.label === value));
-  const addEvent = (title: string, venue: string) => {
-    if (has(ctx.db.event.iter(), title)) return;
-    ctx.db.event.insert({ id: 0n, weddingId, title, startsAt: ctx.timestamp, venue, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp, isCheckpoint: false });
-  };
-  addEvent('Mehendi evening', 'The Leela Palace lawn');
-  addEvent('Sangeet night', 'The Leela Palace ballroom');
-  addEvent('Wedding ceremony', 'Kapaleeshwarar Temple courtyard');
-  if (![...ctx.db.budget.iter()].some(item => item.weddingId === weddingId)) {
-    ctx.db.budget.insert({ id: 0n, weddingId, amountPaise: 300000000n, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  // The demo mirrors the supplied Priya and Rahul hand-off.  It is deliberately
+  // a plan in progress: imported details remain reported and neither quotes nor
+  // chat messages create a booking, spend limit, vendor consent, or final menu.
+  const demoWedding = ctx.db.wedding.id.find(weddingId);
+  if (demoWedding) {
+    ctx.db.wedding.id.update({
+      ...demoWedding,
+      brideName: 'Priya Iyer',
+      groomName: 'Rahul Mehta',
+      city: 'Chennai',
+      dateLabel: '24 January 2027 (tentative)',
+      state: 'reported',
+      source: 'whatsapp_export',
+      updatedBy: ctx.sender,
+      confidence: 0.91,
+      updatedAt: ctx.timestamp,
+    });
   }
+  const has = (table: Iterable<{ weddingId: bigint; title?: string; label?: string }>, value: string) => [...table].some(row => row.weddingId === weddingId && (row.title === value || row.label === value));
+  const addEvent = (title: string, venue: string | undefined, confidence: number) => {
+    if (has(ctx.db.event.iter(), title)) return;
+    ctx.db.event.insert({ id: 0n, weddingId, title, startsAt: undefined, venue, state: 'reported', source: 'whatsapp_export', updatedBy: ctx.sender, confidence, updatedAt: ctx.timestamp, isCheckpoint: false });
+  };
+  addEvent('Morning muhurtham', undefined, 0.73);
+  addEvent('Banyan Court venue visit (proposed)', 'Banyan Court', 0.74);
   const planner = [...ctx.db.participant.iter()].find(person => person.name === 'Anonymous User');
   if (planner && ![...ctx.db.member.by_wedding_identity.filter([weddingId, planner.identity])].length) {
     ctx.db.participant.identity.update({ ...planner, name: 'Ananya Mehta', profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
     ctx.db.member.insert({ id: 0n, weddingId, identity: planner.identity, role: 'planner', side: undefined, joinedAt: ctx.timestamp, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
   }
-  for (const [name, category, bookingState, note] of [
-    ['Nila Blooms', 'Floral decor', 'booked', 'Jasmine-forward mandap and entrance florals'],
-    ['Saffron Table', 'Catering', 'selected', 'South Indian lunch and live filter-coffee bar'],
-    ['Frame Story Studio', 'Photography', 'booked', 'Two-day photo and short wedding film'],
-    ['Raaga Collective', 'Music', 'shortlisted', 'Sangeet band with family song support'],
+  for (const [name, category, note] of [
+    ['Nila Blooms Decor', 'Decor', 'Estimate NB-PR-0613 · ₹389,400 total · 50% to reserve · date not held'],
+    ['Amaravati Events', 'Decor', 'Estimate AE-1427 · ₹292,640 total · 60% to reserve · availability not guaranteed'],
+    ['Frames by Ananya', 'Photography', 'Estimate FBA-PR-102 · ₹279,660 total · 40% to reserve · available, not held'],
   ] as const) {
     if ([...ctx.db.vendor.iter()].some(item => item.weddingId === weddingId && item.name === name)) continue;
-    ctx.db.vendor.insert({ id: 0n, weddingId, name, category, bookingState, note, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
-  }
-  const caterer = [...ctx.db.vendor.iter()].find(item => item.weddingId === weddingId && item.name === 'Saffron Table');
-  if (caterer && ![...ctx.db.vendor_consent.by_vendor.filter(caterer.id)].length) {
-    ctx.db.vendor_consent.insert({ id: 0n, weddingId, vendorId: caterer.id, consented: true, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    ctx.db.vendor.insert({ id: 0n, weddingId, name, category, bookingState: 'estimate received', note, state: 'reported', source: 'vendor_quote', updatedBy: ctx.sender, confidence: 0.99, updatedAt: ctx.timestamp });
   }
   for (const [title, note, palette, sourceUrl] of [
-    ['Soft jasmine ceremony', 'White jasmine, warm ivory, and a quiet brass glow.', '#f4efe2,#d8c79f,#85765c', 'https://www.pinterest.com/instyle/wedding-inspiration/'],
-    ['Marigold gathering', 'A bright marigold moment for the mehendi entrance.', '#f5cf5c,#d98632,#7c5633', 'https://www.pinterest.com/instyle/wedding-inspiration/'],
-    ['Indigo sangeet', 'Deep indigo textiles with candlelight and mirrored details.', '#25375c,#7d91bd,#d8c8ac', 'https://in.pinterest.com/beedilcs/wedding-inspiration/'],
-    ['Coconut welcome', 'Tender coconut, cane, and leafy greens for guests arriving.', '#dce7d4,#a6b98d,#e8d7b4', 'https://in.pinterest.com/beedilcs/wedding-inspiration/'],
+    ['Jasmine and ivory mandap', 'Jasmine, ivory, muted peach, and brass. Keep the ceremony calm and uncluttered; avoid heavy red and gold.', '#f4efe2,#e7bf9e,#a58355', 'https://www.example.test/boards/priya-rahul-ceremony'],
+    ['Coral silk and pearl styling', 'Coral rather than pink. Flowers should complement the sari without matching it exactly.', '#dc826d,#f3e5da,#d6b779', 'https://www.example.test/boards/priya-coral-styling'],
+    ['Warm garden dinner', 'Clean flowers, banana-leaf settings, brass lights, and warm evening ambience.', '#e6bf92,#d58669,#9b7945', 'https://www.example.test/boards/priya-rahul-dinner'],
   ] as const) {
     const existing = [...ctx.db.mood_item.iter()].find(item => item.weddingId === weddingId && item.title === title);
     if (existing) {
@@ -905,19 +914,17 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     }
     ctx.db.mood_item.insert({ id: 0n, weddingId, title, note, palette, state: 'reported', source: 'pinterest', updatedBy: ctx.sender, confidence: 0.9, updatedAt: ctx.timestamp, sourceUrl });
   }
-  for (const [name, side, homeCity, rsvpStatus] of [
-    ['Lakshmi Iyer', 'bride', 'Chennai', 'confirmed'],
-    ['Karthik Iyer', 'bride', 'Bengaluru', 'awaiting_response'],
-    ['Meera Menon', 'bride', 'Chennai', 'confirmed'],
-    ['Arjun Nair', 'groom', 'Kochi', 'awaiting_response'],
-    ['Vikram Shah', 'groom', 'Mumbai', 'declined'],
-    ['Nandini Rao', 'groom', 'Hyderabad', 'confirmed'],
+  for (const [name, side, homeCity, note] of [
+    ['Lakshmi', 'bride', 'Chennai', 'Will list Coimbatore aunties and Bengaluru cousins who need rooms by Wednesday.'],
+    ['Suresh', 'bride', 'Chennai', 'Can join a proposed Sunday morning visit to Banyan Court.'],
+    ['Aditi', undefined, undefined, 'Researching family accommodation options; needs tentative room counts from both sides.'],
+    ['Rahul-side Bengaluru family', 'groom', 'Bengaluru', 'Rahul will share the accommodation list with Aditi by Wednesday.'],
   ] as const) {
     if ([...ctx.db.guest.iter()].some(item => item.weddingId === weddingId && item.name === name)) continue;
-    ctx.db.guest.insert({ id: 0n, weddingId, name, side, homeCity, rsvpStatus, state: 'reported', source: 'guests', updatedBy: ctx.sender, confidence: 0.88, updatedAt: ctx.timestamp, note: undefined, needsFollowUp: false });
+    ctx.db.guest.insert({ id: 0n, weddingId, name, side, homeCity, rsvpStatus: 'not invited', state: 'reported', source: 'whatsapp_export', updatedBy: ctx.sender, confidence: 0.89, updatedAt: ctx.timestamp, note, needsFollowUp: false });
   }
   for (const [kind, itemCount] of [
-    ['pinterest', 4], ['whatsapp', 8], ['guests', 6], ['quotes', 4], ['calendar', 3], ['vendor_details', 4],
+    ['pinterest', 3], ['whatsapp', 19], ['guests', 4], ['quotes', 3], ['calendar', 0], ['vendor_details', 3],
   ] as const) {
     if ([...ctx.db.ingest_source.iter()].some(item => item.weddingId === weddingId && item.kind === kind && item.status === 'imported')) continue;
     ctx.db.ingest_source.insert({ id: 0n, weddingId, kind, status: 'imported', itemCount, submittedBy: ctx.sender, createdAt: ctx.timestamp });
@@ -1888,7 +1895,9 @@ export const voiceCallSuggestion = spacetimedb.httpHandler((ctx, request) => {
       return jsonResponse(403, { error: 'caller is not a member of this wedding' });
     }
 
-    const body = `Call note from ${person.name} (needs review)\n${note}\n\nSuggested next step (needs review)\n${suggestion}`;
+    // Keep the stored text structured for the UI, without turning internal
+    // extraction labels into a message from the caller.
+    const body = `Call update\n${note}\n\nNext step to review\n${suggestion}`;
     const message = tx.db.wedding_message.insert({
       id: 0n,
       weddingId,
@@ -1910,6 +1919,69 @@ export const voiceCallSuggestion = spacetimedb.httpHandler((ctx, request) => {
       state: 'reported',
       deliveredTo: 'wedding_chat',
     });
+  });
+});
+
+// A caller can explicitly start a poll or request a reminder during a call.
+// The voice agent must read the request back and receive a yes before it calls
+// this endpoint. Reminders are limited to the caller's own open task; the
+// external coordinator still enforces ownership, channel preference, and
+// frequency caps before it contacts anyone.
+export const voiceAction = spacetimedb.httpHandler((ctx, request) => {
+  const payload = request.json() as {
+    phone?: unknown; weddingId?: unknown; action?: unknown; confirmed?: unknown;
+    question?: unknown; options?: unknown; taskId?: unknown; instruction?: unknown; confidence?: unknown;
+  };
+
+  return ctx.withTx(tx => {
+    if (!checkWebhookAuth(tx, request)) return jsonResponse(401, { error: 'unauthorized' });
+    if (payload.confirmed !== true) return jsonResponse(400, { error: 'caller confirmation is required' });
+
+    const phone = typeof payload.phone === 'string' ? payload.phone.trim() : '';
+    const action = typeof payload.action === 'string' ? payload.action : '';
+    const confidence = typeof payload.confidence === 'number' ? payload.confidence : 1;
+    if (!phone || !['poll', 'remind'].includes(action)) return jsonResponse(400, { error: 'phone and a valid action are required' });
+    if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) return jsonResponse(400, { error: 'confidence must be between 0 and 1' });
+
+    const [person] = [...tx.db.participant.by_phone.filter(phone)];
+    if (!person) return jsonResponse(404, { error: 'no participant with this phone number' });
+    const memberships = [...tx.db.member.by_identity.filter(person.identity)];
+    let weddingId: bigint | undefined;
+    if (typeof payload.weddingId === 'string' && /^\d+$/.test(payload.weddingId)) weddingId = BigInt(payload.weddingId);
+    else if (typeof payload.weddingId === 'number' && Number.isSafeInteger(payload.weddingId) && payload.weddingId >= 0) weddingId = BigInt(payload.weddingId);
+    else if (payload.weddingId === undefined && memberships.length === 1) weddingId = memberships[0].weddingId;
+    if (weddingId === undefined) return jsonResponse(400, { error: 'weddingId is required when the caller belongs to more than one wedding' });
+    if (!memberships.some(membership => membership.weddingId === weddingId)) return jsonResponse(403, { error: 'caller is not a member of this wedding' });
+
+    if (action === 'poll') {
+      const question = typeof payload.question === 'string' ? payload.question.trim() : '';
+      const options = Array.isArray(payload.options)
+        ? payload.options.filter((option): option is string => typeof option === 'string').map(option => option.trim()).filter(Boolean)
+        : [];
+      if (!question || question.length > 300) return jsonResponse(400, { error: 'enter a short poll question' });
+      if (options.length < 2 || options.length > 12 || options.some(option => option.length > 160)) return jsonResponse(400, { error: 'add between two and twelve short poll options' });
+      const decision = seedDecision(tx, weddingId, question, options, person.identity);
+      tx.db.wedding_message.insert({
+        id: 0n, weddingId, body: `Poll: ${question}\nOptions: ${options.join(' · ')}`,
+        sentBy: person.identity, sentAt: ctx.timestamp, state: 'confirmed', source: 'voice_poll',
+        updatedBy: person.identity, confidence, updatedAt: ctx.timestamp,
+      });
+      return jsonResponse(201, { action: 'poll', decisionId: decision.id.toString(), state: 'confirmed' });
+    }
+
+    const taskId = typeof payload.taskId === 'string' && /^\d+$/.test(payload.taskId)
+      ? BigInt(payload.taskId)
+      : typeof payload.taskId === 'number' && Number.isSafeInteger(payload.taskId) && payload.taskId >= 0 ? BigInt(payload.taskId) : undefined;
+    const instruction = typeof payload.instruction === 'string' ? payload.instruction.trim() : '';
+    if (taskId === undefined || !instruction || instruction.length > 2_000) return jsonResponse(400, { error: 'an open task and reminder details are required' });
+    const openTask = tx.db.task.id.find(taskId);
+    if (!openTask || openTask.done || openTask.weddingId !== weddingId || !openTask.ownerIdentity.equals(person.identity)) return jsonResponse(404, { error: 'no matching open task for this caller' });
+    const reminder = tx.db.coordinator_request.insert({
+      id: 0n, weddingId, kind: 'remind', targetIdentity: person.identity, taskId: openTask.id,
+      instruction, scheduledFor: undefined, status: 'open', state: 'confirmed', source: 'voice_call',
+      requestedBy: person.identity, requestedAt: ctx.timestamp, updatedBy: person.identity, confidence, updatedAt: ctx.timestamp,
+    });
+    return jsonResponse(201, { action: 'remind', requestId: reminder.id.toString(), state: 'confirmed' });
   });
 });
 
@@ -1942,5 +2014,6 @@ export const voiceRoutes = spacetimedb.httpRouter(
     .get('/voice/context', voiceContext)
     .post('/voice/report-task-done', voiceReportTaskDone)
     .post('/voice/call-suggestion', voiceCallSuggestion)
+    .post('/voice/action', voiceAction)
     .get('/invites/preview', invitationPreview)
 );
