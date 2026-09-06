@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Home, Vote, MapPin, Users, LogOut, HeartHandshake, X } from 'lucide-react';
+import { Home, Vote, MapPin, Users, LogOut, HeartHandshake, Sparkles, X } from 'lucide-react';
 import { tables, reducers } from '../module_bindings';
 import { useTable, useReducer, useSpacetimeDB } from 'spacetimedb/react';
 import TodayTab from './TodayTab';
@@ -8,6 +8,7 @@ import DecisionBoard from './DecisionBoard';
 import WeddingTab from './WeddingTab';
 import GroupChat from './GroupChat';
 import GuestWeddingView from './GuestWeddingView';
+import AssistantDock from './AssistantDock';
 import { colors, fonts } from '../theme';
 
 type Tab = 'today' | 'decide' | 'wedding';
@@ -199,6 +200,7 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
   const [tab, setTab] = useState<Tab>('today');
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === identity?.toHexString());
 
   if (membership?.role === 'guest') return <GuestWeddingView weddingId={weddingId} onBack={onBack} />;
@@ -283,6 +285,8 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
 
       {peopleOpen && <PeoplePanel weddingId={weddingId} onClose={() => setPeopleOpen(false)} />}
       {chatOpen && <GroupChat weddingId={weddingId} onClose={() => setChatOpen(false)} />}
+      {assistantOpen && <AssistantDock weddingId={weddingId} screen={tab === 'today' ? 'Today' : tab === 'decide' ? 'Decide' : 'Wedding'} onClose={() => setAssistantOpen(false)} />}
+      <button type="button" className="assistant-launch" onClick={() => setAssistantOpen(value => !value)} aria-expanded={assistantOpen} aria-controls="wedding-assistants"><Sparkles size={17}/> Assistants</button>
     </div>
   );
 }

@@ -1224,15 +1224,15 @@ export const requestCoordinatorAction = spacetimedb.reducer(
     if (!membershipFor(ctx, weddingId)) throw new SenderError('only wedding members can request coordinator help');
     if (!membershipFor(ctx, weddingId, targetIdentity)) throw new SenderError('choose someone in this wedding');
     if (!targetIdentity.equals(ctx.sender) && !canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can request a follow-up for someone else');
-    if (!['remind', 'followup'].includes(kind)) throw new SenderError('invalid coordinator request');
+    if (!['remind', 'followup', 'summarize'].includes(kind)) throw new SenderError('invalid coordinator request');
     const request = instruction.trim();
     if (!request || request.length > 2000) throw new SenderError('request must be between 1 and 2000 characters');
-    // The request creates the owned work item first. The agent layer must
-    // only contact this owner about this still-open task.
+    // Contact requests create an owned work item first. A summary is strictly
+    // in-app draft work: it has no contact or commitment authority.
     const task = ctx.db.task.insert({
       id: 0n,
       weddingId,
-      title: `${kind === 'remind' ? 'Reminder' : 'Follow up'}: ${request}`,
+      title: `${kind === 'remind' ? 'Reminder' : kind === 'followup' ? 'Follow up' : 'Summary draft'}: ${request}`,
       ownerIdentity: targetIdentity,
       done: false,
       createdAt: ctx.timestamp,

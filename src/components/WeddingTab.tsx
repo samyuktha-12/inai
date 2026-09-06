@@ -228,6 +228,15 @@ function BudgetWorkspace({ weddingId }: { weddingId: bigint }) {
   const pendingTotal = lines.filter(item => item.state === 'reported').reduce((sum, item) => sum + Number(item.amountPaise) / 100, 0);
   const target = budget ? Number(budget.amountPaise) / 100 : 0;
   const percent = target ? Math.min(100, (confirmedTotal / target) * 100) : 0;
+  const categoryTotals = Array.from(lines.filter(item => item.state === 'confirmed').reduce((categories, item) => {
+    const category = item.category.trim() || 'Other';
+    const current = categories.get(category) ?? { planned: 0, paid: 0, lines: 0 };
+    current.planned += Number(item.amountPaise) / 100;
+    current.paid += item.paid ? Number(item.amountPaise) / 100 : 0;
+    current.lines += 1;
+    categories.set(category, current);
+    return categories;
+  }, new Map<string, { planned: number; paid: number; lines: number }>())).sort(([, left], [, right]) => right.planned - left.planned);
   const submitBudget = (event: FormEvent) => {
     event.preventDefault();
     const amountPaise = rupeesToPaise(budgetAmount);
@@ -256,8 +265,20 @@ function BudgetWorkspace({ weddingId }: { weddingId: bigint }) {
   return <section className="budget-workspace">
     <div className="budget-hero budget-hero--summary"><div><p className="section-label">Budget overview</p><h2>{target ? overBudget ? `${fmt.format(overBudget)} over budget` : `${fmt.format(remaining)} left to plan` : 'Set a budget to begin'}</h2><p>{target ? `Total budget: ${fmt.format(target)}. ${fmt.format(confirmedTotal)} has been planned so far.` : 'Set a shared spending limit, then add quotes, deposits, and payments below.'}</p></div>{canManage && <button type="button" className="outline-action" onClick={() => { setBudgetAmount(target ? String(target) : ''); setShowBudgetForm(value => !value); }}><Landmark size={16}/>{target ? 'Edit total budget' : 'Set total budget'}</button>}</div>
     {showBudgetForm && <form className="quick-add-form budget-form" onSubmit={submitBudget}><label>Total budget in rupees<input autoFocus inputMode="decimal" value={budgetAmount} onChange={event => setBudgetAmount(event.target.value)} placeholder="e.g. 2500000" required /></label><p>This is a human-approved planning limit. It does not spend or book anything.</p><button className="primary-button" type="submit">Save budget</button></form>}
-    <div className="budget-stats"><div><span>Total budget</span><b>{target ? fmt.format(target) : 'Not set'}</b><small>Shared spending limit</small></div><div><span>Planned so far</span><b>{fmt.format(confirmedTotal)}</b><small>{paidTotal ? `${fmt.format(paidTotal)} already paid` : 'No payments recorded yet'}</small></div><div className={pendingTotal ? 'budget-review' : ''}><span>Waiting for review</span><b>{fmt.format(pendingTotal)}</b><small>{pendingTotal ? 'Imported details need confirmation' : 'Nothing waiting for review'}</small></div></div>
+    <div className="budget-stats budget-stats--expanded" aria-label="Budget summary">
+      <div><span>Total budget</span><b>{target ? fmt.format(target) : 'Not set'}</b><small>Family-approved limit</small></div>
+      <div><span>Current plan</span><b>{fmt.format(confirmedTotal)}</b><small>{target ? `${Math.round(percent)}% of the total budget` : `${lines.filter(item => item.state === 'confirmed').length} confirmed lines`}</small></div>
+      <div><span>Paid so far</span><b>{fmt.format(paidTotal)}</b><small>{paidTotal ? `${fmt.format(Math.max(0, confirmedTotal - paidTotal))} still to pay` : 'No payments marked yet'}</small></div>
+      <div className={pendingTotal ? 'budget-review' : ''}><span>Needs review</span><b>{fmt.format(pendingTotal)}</b><small>{pendingTotal ? 'Not included in the plan yet' : 'Everything is confirmed'}</small></div>
+    </div>
     {target > 0 && <div className="budget-progress-summary"><div className="budget-progress" role="progressbar" aria-label="Budget planned" aria-valuemin={0} aria-valuemax={target} aria-valuenow={confirmedTotal}><span style={{ width: `${percent}%` }} /></div><p className={overBudget ? 'budget-warning' : 'budget-caption'}>{overBudget ? `${fmt.format(overBudget)} above your total budget` : `${fmt.format(confirmedTotal)} of ${fmt.format(target)} planned · ${Math.round(percent)}%`}</p></div>}
+    {categoryTotals.length > 0 && <section className="budget-breakdown" aria-labelledby="budget-breakdown-title">
+      <div className="budget-breakdown-heading"><div><p className="section-label">By section</p><h3 id="budget-breakdown-title">Where the budget is going</h3><p>Confirmed amounts only. Imported figures stay outside the running plan until someone reviews them.</p></div><span>{categoryTotals.length} {categoryTotals.length === 1 ? 'section' : 'sections'}</span></div>
+      <div className="budget-breakdown-table" role="table" aria-label="Budget by section">
+        <div className="budget-breakdown-row budget-breakdown-row--head" role="row"><span role="columnheader">Section</span><span role="columnheader">Planned</span><span role="columnheader">Paid</span><span role="columnheader">To pay</span></div>
+        {categoryTotals.map(([category, totals]) => <div className="budget-breakdown-row" role="row" key={category}><div role="cell"><b>{category}</b><small>{totals.lines} {totals.lines === 1 ? 'line' : 'lines'}</small></div><b role="cell">{fmt.format(totals.planned)}</b><b role="cell">{fmt.format(totals.paid)}</b><b role="cell">{fmt.format(Math.max(0, totals.planned - totals.paid))}</b></div>)}
+      </div>
+    </section>}
     <div className="budget-section-heading"><div><p className="section-label">Budget lines</p><h3>Quotes, deposits, and payments</h3></div>{canManage && <button type="button" className="outline-action" onClick={() => setShowExpenseForm(true)}><Plus size={16}/> Add line</button>}</div>
     {showExpenseForm && <div className="modal-backdrop modal-backdrop--sheet" onClick={() => setShowExpenseForm(false)}><form className="modal-sheet budget-line-sheet" role="dialog" aria-modal="true" aria-labelledby="add-budget-line-title" onClick={event => event.stopPropagation()} onSubmit={submitExpense}>
       <div className="quick-add-heading"><div><p className="section-label">Budget line</p><h2 id="add-budget-line-title">Add a quote or payment</h2></div><button type="button" onClick={() => setShowExpenseForm(false)} aria-label="Close add budget line"><X size={18}/></button></div>
@@ -268,7 +289,7 @@ function BudgetWorkspace({ weddingId }: { weddingId: bigint }) {
       <p>Adding a line records it for the group. It does not pay, reserve, or contact a vendor.</p>
       <div className="budget-line-sheet-actions"><button type="button" className="text-button" onClick={() => setShowExpenseForm(false)}>Cancel</button><button className="primary-button" type="submit"><BadgeIndianRupee size={17}/> Add budget line</button></div>
     </form></div>}
-    <div className="budget-lines">{lines.length ? lines.map(line => { const linkedVendor = line.vendorId === undefined ? undefined : weddingVendors.find(item => item.id === line.vendorId); return <article className={`budget-line ${line.state === 'reported' ? 'reported' : ''}`} key={String(line.id)}><div><b>{line.label}</b><p>{line.category}{linkedVendor ? ` · ${linkedVendor.name}` : ''}</p><small>{line.state === 'reported' ? 'Imported · needs review' : line.paid ? 'Paid' : 'Planned'}</small></div><div className="budget-line-value"><b>{fmt.format(Number(line.amountPaise) / 100)}</b>{line.state === 'reported' && canManage && <span><button type="button" onClick={() => confirmExpense({ expenseId: line.id, accept: true })}>Confirm</button><button type="button" className="text-button" onClick={() => confirmExpense({ expenseId: line.id, accept: false })}>Dismiss</button></span>}</div></article>; }) : <div className="empty-budget"><CircleDollarSign size={22}/><b>No budget lines yet</b><p>Add the first quote or payment yourself, or import vendor quotes from Connect for review.</p></div>}</div>
+    <div className="budget-lines">{lines.length ? lines.map(line => { const linkedVendor = line.vendorId === undefined ? undefined : weddingVendors.find(item => item.id === line.vendorId); const status = line.state === 'reported' ? 'Needs review' : line.paid ? 'Paid' : 'Planned'; return <article className={`budget-line ${line.state === 'reported' ? 'reported' : ''}`} key={String(line.id)}><div className="budget-line-main"><b>{line.label}</b><p>{line.category}{linkedVendor ? ` · ${linkedVendor.name}` : ''}</p></div><div className="budget-line-status"><span className={line.state === 'reported' ? 'budget-status review' : line.paid ? 'budget-status paid' : 'budget-status planned'}>{status}</span></div><div className="budget-line-value"><b>{fmt.format(Number(line.amountPaise) / 100)}</b>{line.state === 'reported' && canManage && <span><button type="button" onClick={() => confirmExpense({ expenseId: line.id, accept: true })}>Confirm</button><button type="button" className="text-button" onClick={() => confirmExpense({ expenseId: line.id, accept: false })}>Dismiss</button></span>}</div></article>; }) : <div className="empty-budget"><CircleDollarSign size={22}/><b>No budget lines yet</b><p>Add the first quote or payment yourself, or import vendor quotes from Connect for review.</p></div>}</div>
     <div className="budget-section-heading vendor-heading"><div><p className="section-label">Vendors</p><h3>Keep selection and consent clear</h3></div>{canManage && <div className="vendor-heading-actions">{weddingVendors.some(item => item.bookingState === 'shortlisted') && <button type="button" className="outline-action" onClick={() => setShowVendorReview(true)}>Review choices</button>}<button type="button" className="outline-action" onClick={() => setShowVendorForm(true)}><Plus size={16}/> Add vendor</button></div>}</div>
     {showVendorReview && <VendorSwipeDeck vendors={weddingVendors} onUpdate={(vendorId, bookingState) => setVendorBookingState({ vendorId, bookingState })} onClose={() => setShowVendorReview(false)} />}
     {showVendorForm && <div className="modal-backdrop modal-backdrop--sheet" onClick={() => setShowVendorForm(false)}><form className="modal-sheet vendor-form-sheet" role="dialog" aria-modal="true" aria-labelledby="add-vendor-title" onClick={event => event.stopPropagation()} onSubmit={submitVendor}><div className="quick-add-heading"><div><p className="section-label">Vendor</p><h2 id="add-vendor-title">Add a vendor</h2></div><button type="button" onClick={() => setShowVendorForm(false)} aria-label="Close add vendor"><X size={18}/></button></div><label>Vendor name<input autoFocus value={vendor.name} onChange={event => setVendor(value => ({ ...value, name: event.target.value }))} placeholder="e.g. Nila Blooms" required maxLength={160} /></label><label>Category<input value={vendor.category} onChange={event => setVendor(value => ({ ...value, category: event.target.value }))} placeholder="e.g. Floral decor" required maxLength={100} /></label><label>Notes <span>optional</span><textarea value={vendor.note} onChange={event => setVendor(value => ({ ...value, note: event.target.value }))} placeholder="What should the family remember about this vendor?" maxLength={1000} /></label><p>Vendor contact details and outreach stay outside this shared plan. Add only the planning context the group needs.</p><div className="budget-line-sheet-actions"><button type="button" className="text-button" onClick={() => setShowVendorForm(false)}>Cancel</button><button className="primary-button" type="submit"><Store size={17}/> Add vendor</button></div></form></div>}
@@ -426,18 +447,31 @@ function AddCustomAgent({ weddingId, onDone }: { weddingId: bigint; onDone: () =
   const createCustomWeddingAgent = useReducer(reducers.createCustomWeddingAgent);
   const [name, setName] = useState('');
   const [instructions, setInstructions] = useState('');
-  const submit = (event: FormEvent) => {
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!name.trim() || !instructions.trim()) return;
-    createCustomWeddingAgent({ weddingId, name: name.trim(), instructions: instructions.trim() });
-    onDone();
+    setSaving(true); setError('');
+    try {
+      await createCustomWeddingAgent({ weddingId, name: name.trim(), instructions: instructions.trim() });
+      const runtimeUrl = import.meta.env.VITE_AGENT_RUNTIME_URL?.replace(/\/$/, '');
+      if (runtimeUrl) {
+        const response = await fetch(`${runtimeUrl}/v1/agents/deploy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wedding_id: String(weddingId), agent_id: `${weddingId}:${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, name: name.trim(), instructions: instructions.trim() }) });
+        if (!response.ok) throw new Error('The assistant was added, but could not start yet. Try again shortly.');
+      }
+      onDone();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'We could not add this assistant. Try again.');
+    } finally { setSaving(false); }
   };
   return <form className="quick-add-form custom-agent-form" onSubmit={submit}>
     <div className="quick-add-heading"><div><p className="section-label">New assistant</p><h2>Give your wedding team a hand</h2></div><button type="button" onClick={onDone} aria-label="Close new assistant"><X size={18}/></button></div>
     <label>Assistant name<input value={name} onChange={event => setName(event.target.value)} maxLength={80} placeholder="e.g. Ritual guide" required autoFocus /></label>
     <label>What should it focus on?<textarea value={instructions} onChange={event => setInstructions(event.target.value)} maxLength={2000} placeholder="For example: Organise ceremony traditions and draft a simple family run-sheet for review." required /></label>
-    <p>It can read the plan, organise information, and prepare drafts. A person still approves all decisions, spending, messages, and vendor contact.</p>
-    <button className="primary-button" type="submit"><Plus size={17}/> Add assistant</button>
+    <p>It becomes active across Inai as soon as you add it. It can read the plan, organise information, and prepare drafts. A person still approves all decisions, spending, messages, and vendor contact.</p>
+    {error && <p className="form-error">{error}</p>}
+    <button className="primary-button" type="submit" disabled={saving}><Plus size={17}/>{saving ? 'Adding assistant…' : 'Add assistant'}</button>
   </form>;
 }
 

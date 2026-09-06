@@ -6,9 +6,11 @@ human to review. Persisting or acting on the draft belongs to a separately
 authorized SpaceTimeDB reducer/worker flow.
 """
 
+import os
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 from pydantic import BaseModel, Field
@@ -23,7 +25,7 @@ class Settings(BaseSettings):
 
 class DraftRequest(BaseModel):
     request_id: str = Field(min_length=1)
-    kind: str = Field(pattern="^(remind|followup)$")
+    kind: str = Field(pattern="^(remind|followup|summarize)$")
     owner_name: str = Field(min_length=1)
     instruction: str = Field(min_length=1, max_length=2000)
     scheduled_for: str | None = None
@@ -36,10 +38,30 @@ class DraftResponse(BaseModel):
     action: str = "draft_only"
 
 
+class AgentDeployment(BaseModel):
+    """A user-created assistant activated by the live wedding surface.
+
+    This is deliberately configuration, not authority. The agent can only
+    prepare drafts and the record remains the source of truth in SpaceTimeDB.
+    """
+    wedding_id: str = Field(min_length=1)
+    agent_id: str = Field(min_length=1)
+    name: str = Field(min_length=1, max_length=80)
+    instructions: str = Field(min_length=1, max_length=2000)
+
+
+class DeploymentResponse(BaseModel):
+    agent_id: str
+    status: str = "active"
+    action: str = "draft_only"
+
+
 SYSTEM_PROMPT = """You are Inai's in-app wedding Coordinator. Write a short,
-kind draft for the named person about the single task they own. Do not claim an
-action happened, make decisions, commit money, contact vendors, or send a
-message. Do not mention tools or policies. Return plain text only."""
+kind reviewable draft. For a reminder or follow-up, write for the named person
+about their single task. For a summary, clearly separate confirmed facts from
+items that still need review. Do not claim an action happened, make decisions,
+commit money, contact vendors, or send a message. Do not mention tools or
+policies. Return plain text only."""
 
 
 @lru_cache
@@ -66,11 +88,28 @@ workflow.add_edge("make_draft", END)
 draft_graph = workflow.compile()
 
 app = FastAPI(title="Inai Coordinator", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in os.getenv("AGENT_ALLOWED_ORIGINS", "http://localhost:5173").split(",") if origin.strip()],
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
+
+# The worker keeps the active runtime configuration in memory; production
+# workers should also subscribe to `custom_wedding_agent` so a restart simply
+# rebuilds this cache from the deterministic source of truth.
+active_agents: dict[tuple[str, str], AgentDeployment] = {}
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/v1/agents/deploy", response_model=DeploymentResponse)
+def deploy_agent(agent: AgentDeployment) -> DeploymentResponse:
+    active_agents[(agent.wedding_id, agent.agent_id)] = agent
+    return DeploymentResponse(agent_id=agent.agent_id)
 
 
 @app.post("/v1/drafts", response_model=DraftResponse)

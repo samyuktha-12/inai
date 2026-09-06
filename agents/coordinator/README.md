@@ -26,6 +26,15 @@ Run it with:
 uvicorn main:app --reload --port 8000
 ```
 
+Set `VITE_AGENT_RUNTIME_URL=http://127.0.0.1:8000` in the web app's `.env`
+when running locally. Each custom assistant is registered with
+`POST /v1/agents/deploy` immediately after it is created and becomes available
+on every Inai screen. In production, set this to the deployed worker URL; the
+worker should also subscribe to `custom_wedding_agent` to rebuild its active
+configuration after a restart.
+Set `AGENT_ALLOWED_ORIGINS` on the worker to the web app's origin (comma-
+separate multiple origins) so the activation request can be accepted.
+
 Test without exposing a key to the browser:
 
 ```bash
