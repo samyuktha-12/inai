@@ -15,7 +15,15 @@ function WeddingSurface() {
 const VIEW_KEY = 'inai-view';
 
 function initialView(): 'hero' | 'app' {
-  if (window.location.search.includes('code=')) return 'app';
+  const params = new URLSearchParams(window.location.search);
+  const invite = params.get('invite');
+  if (invite) {
+    // Save before AuthGate starts an OIDC redirect, since the callback URL
+    // intentionally removes query parameters after sign-in.
+    localStorage.setItem('inai-invite', invite);
+    return 'app';
+  }
+  if (params.has('code')) return 'app';
   return localStorage.getItem(VIEW_KEY) === 'app' ? 'app' : 'hero';
 }
 
@@ -30,7 +38,10 @@ function App() {
 
   useEffect(() => {
     const invite = new URLSearchParams(window.location.search).get('invite');
-    if (invite) localStorage.setItem('inai-invite', invite);
+    if (invite) {
+      localStorage.setItem('inai-invite', invite);
+      setView('app');
+    }
   }, []);
 
   const handleGetStarted = () => {

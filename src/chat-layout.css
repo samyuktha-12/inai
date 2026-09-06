@@ -1,0 +1,1 @@
+@media(min-width:901px){.decision-chat-layout{grid-template-columns:minmax(0,1fr) minmax(500px,560px)!important;gap:clamp(42px,4vw,76px)!important}.group-chat{width:min(100%,560px)}.chat-backdrop .group-chat{width:min(100%,560px)}}

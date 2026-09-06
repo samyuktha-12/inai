@@ -81,6 +81,7 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
           {isMe ? ' (you)' : ''}
         </span>
         {iAmAdmin && membership && !isMe ? (
+          <span style={{ display: 'grid', justifyItems: 'end', gap: 3 }}>
           <select
             value={membership.role}
             onChange={e => setMembershipRole({ weddingId, identity: p.identity, role: e.target.value })}
@@ -99,8 +100,10 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
               </option>
             ))}
           </select>
+          <small style={{ fontSize: 11, color: colors.muted }}>{membership.state === 'confirmed' ? 'Joined' : 'Awaiting confirmation'}</small>
+          </span>
         ) : (
-          <span style={{ fontSize: 12, color: colors.muted }}>{membership && (ROLE_LABELS[membership.role] ?? membership.role)}</span>
+          <span style={{ fontSize: 12, color: colors.muted }}>{membership && `${ROLE_LABELS[membership.role] ?? membership.role} · ${membership.state === 'confirmed' ? 'Joined' : 'Awaiting confirmation'}`}</span>
         )}
       </div>
     );

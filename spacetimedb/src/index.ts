@@ -1224,7 +1224,7 @@ export const updateMyProfile = spacetimedb.reducer(
   (ctx, { name, phone, dateOfBirth, gender, mealPreference }) => {
     const person = ctx.db.participant.identity.find(ctx.sender);
     if (!person) throw new SenderError('sign in before updating your profile');
-    if (person.profileState === 'confirmed' && name !== person.name) {
+    if (person.profileState === 'confirmed' && name !== person.name && !person.name.startsWith('Guest ') && person.name !== 'Anonymous User') {
       throw new SenderError('your name is set during profile setup');
     }
     if (!/^\+91[6-9][0-9]{9}$/.test(phone)) throw new SenderError('enter a valid Indian mobile number, for example +919360305804');
@@ -1442,7 +1442,7 @@ function queryParam(url: string, name: string): string | undefined {
 function jsonResponse(status: number, body: unknown): SyncResponse {
   return new SyncResponse(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' },
   });
 }
 
@@ -1570,8 +1570,33 @@ export const voiceReportTaskDone = spacetimedb.httpHandler((ctx, request) => {
   });
 });
 
+// An invitation code is a bearer credential. This endpoint reveals only the
+// small amount of context a recipient needs before accepting it; invitation
+// rows and their codes remain private tables.
+export const invitationPreview = spacetimedb.httpHandler((ctx, request) => {
+  const code = queryParam(request.url, 'code');
+  if (!code) return jsonResponse(400, { error: 'invite code is required' });
+  return ctx.withTx(tx => {
+    const [invitation] = [...tx.db.wedding_invitation.by_code.filter(code)];
+    if (!invitation) return jsonResponse(404, { error: 'invite not found' });
+    const invitedWedding = tx.db.wedding.id.find(invitation.weddingId);
+    if (!invitedWedding) return jsonResponse(404, { error: 'wedding not found' });
+    return jsonResponse(200, {
+      weddingId: invitation.weddingId.toString(),
+      brideName: invitedWedding.brideName,
+      groomName: invitedWedding.groomName,
+      city: invitedWedding.city,
+      dateLabel: invitedWedding.dateLabel,
+      role: invitation.role,
+      side: invitation.side ?? null,
+      status: invitation.status,
+    });
+  });
+});
+
 export const voiceRoutes = spacetimedb.httpRouter(
   new Router()
     .get('/voice/context', voiceContext)
     .post('/voice/report-task-done', voiceReportTaskDone)
+    .get('/invites/preview', invitationPreview)
 );

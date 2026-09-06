@@ -1,0 +1,2 @@
+/* Keep a live exchange together; only mark a real pause in the conversation. */
+.group-chat-message{padding-block:7px!important;border-bottom:0!important}.group-chat-message.spaced{margin-top:0;padding-top:7px!important;border-top:0!important}.chat-gap{display:flex;align-items:center;gap:10px;margin:17px 0 8px;color:var(--ink-soft);font-size:11px;font-weight:650}.chat-gap::before,.chat-gap::after{content:"";height:1px;flex:1;background:var(--rule)}.chat-gap span{padding:0 3px;white-space:nowrap}
