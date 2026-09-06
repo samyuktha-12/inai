@@ -40,3 +40,17 @@
 /* Timeline rows have four fixed layout roles: date, review state, event detail, and action. */
 .itinerary-event-list article{display:grid;grid-template-columns:108px max-content minmax(0,1fr) max-content;align-items:center;gap:14px;min-height:76px;padding:12px 0;border-bottom:1px solid var(--rule)}
 @media(max-width:700px){.itinerary-event-list article{grid-template-columns:72px minmax(0,1fr) auto;gap:8px;min-height:0;padding:14px 0}.itinerary-event-list article>time{grid-column:1;grid-row:1 / span 2;align-self:stretch;padding-right:8px}.event-state{grid-column:2;grid-row:1;justify-self:start}.timeline-event-main{grid-column:2 / -1;grid-row:2;grid-template-columns:1fr;gap:5px}.timeline-event-actions{grid-column:3;grid-row:1;align-self:start;margin:0}}
+
+/* The desktop metric rhythm uses four columns, but that leaves each metric too
+   narrow for its label and currency value on phones. Keep the final responsive
+   override here because the desktop refinement rules above are intentionally
+   loaded later in this stylesheet. */
+@media(max-width:560px){
+  .dashboard-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-metrics>div{min-height:148px;padding:20px 16px}
+  .dashboard-metrics>div:nth-child(odd){border-right:1px solid var(--rule)}
+  .dashboard-metrics>div:nth-child(even){border-right:0}
+  .dashboard-metrics>div:nth-child(-n+2){border-bottom:1px solid var(--rule)}
+  .dashboard-metrics>div:nth-child(n+3){border-bottom:0}
+  .dashboard-metrics b{font-size:clamp(28px,8.5vw,33px)}
+}
