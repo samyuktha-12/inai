@@ -1219,6 +1219,15 @@ export const acceptWeddingInvitation = spacetimedb.reducer(
   }
 );
 
+export const declineWeddingInvitation = spacetimedb.reducer(
+  { code: t.string() },
+  (ctx, { code }) => {
+    const [invite] = [...ctx.db.wedding_invitation.by_code.filter(code)];
+    if (!invite || invite.status !== 'pending') throw new SenderError('this invite is no longer available');
+    ctx.db.wedding_invitation.id.update({ ...invite, status: 'declined' });
+  }
+);
+
 export const updateMyProfile = spacetimedb.reducer(
   { name: t.string(), phone: t.string(), dateOfBirth: t.option(t.string()), gender: t.option(t.string()), mealPreference: t.option(t.string()) },
   (ctx, { name, phone, dateOfBirth, gender, mealPreference }) => {

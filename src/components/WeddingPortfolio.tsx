@@ -5,15 +5,22 @@ import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import { useAuth } from 'react-oidc-context';
 import Onboarding, { type NewWeddingPlan } from './Onboarding';
 import '../profile-form.css';
+import '../invite-flow.css';
 
 type Props = { onOpenWedding: (id: bigint) => void };
 
-type InvitePreview = { weddingId: string; brideName: string; groomName: string; city: string; dateLabel: string; role: string; side: string | null; status: 'pending' | 'accepted' };
+type InvitePreview = { weddingId: string; brideName: string; groomName: string; city: string; dateLabel: string; role: string; side: string | null; status: 'pending' | 'accepted' | 'declined' };
 
 function invitePreviewUrl(code: string) {
   const host = (import.meta.env.VITE_SPACETIMEDB_HOST ?? 'ws://localhost:3000').replace(/^ws/, 'http').replace(/\/$/, '');
   const database = import.meta.env.VITE_SPACETIMEDB_DB_NAME ?? 'react-ts';
   return `${host}/v1/database/${encodeURIComponent(database)}/route/invites/preview?code=${encodeURIComponent(code)}`;
+}
+
+function removeInviteFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('invite');
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
 function DateOfBirthFields({ value, onChange }: { value: string; onChange: (value: string) => void }) {
@@ -119,9 +126,12 @@ export default function WeddingPortfolio({ onOpenWedding }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileAfterInvite, setProfileAfterInvite] = useState(false);
   const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const [decliningInvite, setDecliningInvite] = useState(false);
+  const [inviteDeclined, setInviteDeclined] = useState(false);
   const [invitedWeddingId, setInvitedWeddingId] = useState<string | null>(null);
   const [inviteEntryOpen, setInviteEntryOpen] = useState(false);
   const acceptWeddingInvitation = useReducer(reducers.acceptWeddingInvitation);
+  const declineWeddingInvitation = useReducer(reducers.declineWeddingInvitation);
   const [inviteCode, setInviteCode] = useState(() => new URLSearchParams(window.location.search).get('invite') ?? localStorage.getItem('inai-invite') ?? '');
   const [inviteError, setInviteError] = useState('');
   const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
@@ -153,6 +163,7 @@ export default function WeddingPortfolio({ onOpenWedding }: Props) {
   useEffect(() => {
     if (!inviteCode || !joinedInvitation) return;
     localStorage.removeItem('inai-invite');
+    removeInviteFromUrl();
     setInviteCode('');
     setInviteError('');
     setAcceptingInvite(false);
@@ -167,8 +178,16 @@ export default function WeddingPortfolio({ onOpenWedding }: Props) {
     try { await acceptWeddingInvitation({ code: inviteCode.trim() }); }
     catch { setAcceptingInvite(false); setInviteError('That invite could not be accepted. Ask the wedding owner for a new link.'); }
   };
-  if (inviteCode && !joinedInvitation && !newPlan) return <main className="portfolio-page invite-accept-page"><section className="invite-accept-card"><p className="eyebrow">Wedding invitation</p><h1>{invitePreview ? `${invitePreview.brideName} & ${invitePreview.groomName}` : 'You’re invited'}</h1>{invitePreview ? <p>{invitePreview.city} · {invitePreview.dateLabel}<br />You’ll join as {invitePreview.role === 'planner' ? 'event creator' : invitePreview.role}{invitePreview.side ? ` · ${invitePreview.side === 'bride' ? 'Bride’s side' : 'Groom’s side'}` : ''}.</p> : <p>Checking the invitation details…</p>}{invitePreview?.status === 'accepted' ? <><p className="form-error">This invitation has already been used.</p><small>Ask the wedding owner to send you a new link if you need access.</small></> : <><button className="primary-button" onClick={acceptInvite} disabled={!invitePreview || acceptingInvite}>{acceptingInvite ? 'Joining wedding…' : 'Accept invitation'}</button>{inviteError && <span className="form-error">{inviteError}</span>}<small>You can add your contact and planning details next.</small></>}</section></main>;
-  if ((profileAfterInvite || me) && !profileIsComplete) return <ProfileSheet required initialName={googleName} onClose={() => undefined} />;
+  const declineInvite = async () => {
+    if (!inviteCode.trim()) return;
+    setDecliningInvite(true);
+    setInviteError('');
+    try { await declineWeddingInvitation({ code: inviteCode.trim() }); setInviteDeclined(true); }
+    catch { setDecliningInvite(false); setInviteError('That invitation could not be declined. Please try again.'); }
+  };
+  const leaveInvitation = () => { localStorage.removeItem('inai-invite'); removeInviteFromUrl(); setInviteCode(''); setInviteDeclined(false); };
+  if (inviteCode && !joinedInvitation && !newPlan) return <main className="portfolio-page invite-accept-page"><section className="invite-accept-card"><p className="eyebrow">Wedding invitation</p><h1>{invitePreview ? `${invitePreview.brideName} & ${invitePreview.groomName}` : 'You’re invited'}</h1>{inviteDeclined || invitePreview?.status === 'declined' ? <><p>You’ve declined this invitation. You will not be added to this wedding.</p><button className="secondary-button" onClick={leaveInvitation}>Back to your weddings</button></> : <>{invitePreview ? <p>{invitePreview.city} · {invitePreview.dateLabel}<br />You’ll join as {invitePreview.role === 'planner' ? 'event creator' : invitePreview.role}{invitePreview.side ? ` · ${invitePreview.side === 'bride' ? 'Bride’s side' : 'Groom’s side'}` : ''}.</p> : <p>Checking the invitation details…</p>}{invitePreview?.status === 'accepted' ? <><p className="form-error">This invitation has already been used.</p><small>Ask the wedding owner to send you a new link if you need access.</small></> : <><button className="primary-button" onClick={acceptInvite} disabled={!invitePreview || acceptingInvite || decliningInvite}>{acceptingInvite ? 'Joining wedding…' : 'Accept invitation'}</button>{invitePreview?.role === 'guest' && <button className="invite-decline-button" onClick={declineInvite} disabled={!invitePreview || acceptingInvite || decliningInvite}>{decliningInvite ? 'Declining…' : 'Decline invitation'}</button>}{inviteError && <span className="form-error">{inviteError}</span>}<small>You can add your contact and planning details next.</small></>}</>}</section></main>;
+  if ((profileAfterInvite || mine.length > 0) && !profileIsComplete) return <ProfileSheet required initialName={googleName} onClose={() => undefined} />;
   if (mine.length === 0 && !newPlan && !inviteCode) return <><NewWeddingHome name={me?.name?.startsWith('Guest ') ? googleName : me?.name} onCreate={() => setCreating(true)} onProfile={() => setProfileOpen(true)} onInvite={() => setInviteEntryOpen(true)} />{profileOpen && <ProfileSheet initialName={googleName} onClose={() => setProfileOpen(false)} />}{inviteEntryOpen && <InviteCodeSheet onClose={() => setInviteEntryOpen(false)} onContinue={code => { setInviteCode(code); setInviteEntryOpen(false); }} />}</>;
   return <main className="portfolio-page"><header className="portfolio-header"><div><p className="eyebrow">Welcome{me?.name ? `, ${me.name}` : ''}</p><h1>Your weddings</h1></div><button className="avatar-button" aria-label="Open your profile" onClick={() => setProfileOpen(true)}>{me?.name?.slice(0, 1).toUpperCase() || <Settings size={18}/>}</button></header><p className="portfolio-intro">Choose a wedding to see what needs you, or start a new plan.</p>{inviteCode && <section className="join-invite"><b>{invitePreview ? `${invitePreview.brideName} & ${invitePreview.groomName}` : 'You’ve been invited to a wedding'}</b>{invitePreview ? <p>{invitePreview.city} · {invitePreview.dateLabel}<br />Join as {invitePreview.role === 'planner' ? 'event creator' : invitePreview.role}{invitePreview.side ? ` · ${invitePreview.side === 'bride' ? 'Bride’s side' : 'Groom’s side'}` : ''}.</p> : <p>Checking the wedding details…</p>}<button className="primary-button" onClick={acceptInvite}>Join this wedding</button>{inviteError && <span>{inviteError}</span>}</section>}<section className="wedding-list" aria-live="polite">{newPlan && <div className="wedding-card" aria-label={`${newPlan.brideName} and ${newPlan.groomName}'s wedding plan is being set up`}><span className="wedding-card-mark"><CalendarDays size={22}/></span><span className="wedding-card-copy"><b>{newPlan.brideName} & {newPlan.groomName}</b><span>{newPlan.city} · {newPlan.dateLabel}</span><small>Setting up your plan…</small></span></div>}{mine.map(({ member, wedding }) => <button className="wedding-card" key={String(wedding.id)} onClick={() => onOpenWedding(wedding.id)}><span className="wedding-card-mark"><CalendarDays size={22}/></span><span className="wedding-card-copy"><b>{wedding.brideName} & {wedding.groomName}</b><span>{wedding.city} · {wedding.dateLabel}</span><small><Users size={13}/>{member.role === 'family' ? `${member.side === 'bride' ? 'Bride' : member.side === 'groom' ? 'Groom' : 'Family'} side` : member.role === 'planner' ? 'Event creator' : member.role}</small></span><ChevronRight size={20}/></button>)}</section>{mine.filter(({ member }) => member.role === 'couple' || member.role === 'planner').map(({ wedding }) => <InvitePeople key={`invite-${wedding.id}`} weddingId={wedding.id} />)}<button className="create-wedding-button" onClick={() => setCreating(true)}><Plus size={20}/> Create a wedding plan</button>{profileOpen && <ProfileSheet initialName={googleName} onClose={() => setProfileOpen(false)} />}</main>;
 }

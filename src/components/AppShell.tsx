@@ -7,6 +7,7 @@ import TodayTab from './TodayTab';
 import DecisionBoard from './DecisionBoard';
 import WeddingTab from './WeddingTab';
 import GroupChat from './GroupChat';
+import GuestWeddingView from './GuestWeddingView';
 import { colors, fonts } from '../theme';
 
 type Tab = 'today' | 'decide' | 'wedding';
@@ -213,10 +214,14 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
 }
 
 export default function AppShell({ onBack, weddingId }: { onBack: () => void; weddingId: bigint }) {
-  const { isActive } = useSpacetimeDB();
+  const { isActive, identity } = useSpacetimeDB();
+  const [members] = useTable(tables.member);
   const [tab, setTab] = useState<Tab>('today');
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === identity?.toHexString());
+
+  if (membership?.role === 'guest') return <GuestWeddingView weddingId={weddingId} onBack={onBack} />;
 
   return (
     <div className="inai-app">
@@ -293,7 +298,7 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
       <main className="inai-page">
         {tab === 'today' && <TodayTab weddingId={weddingId} onNavigate={t => setTab(t === 'tasks' ? 'wedding' : t)} onOpenChat={() => setChatOpen(true)} />}
         {tab === 'decide' && <div className="decision-chat-layout"><DecisionBoard weddingId={weddingId} /><GroupChat weddingId={weddingId} embedded /></div>}
-        {tab === 'wedding' && <WeddingTab weddingId={weddingId} />}
+        {tab === 'wedding' && <WeddingTab weddingId={weddingId} canViewBudget={membership?.role !== 'guest'} />}
       </main>
 
       {peopleOpen && <PeoplePanel weddingId={weddingId} onClose={() => setPeopleOpen(false)} />}
