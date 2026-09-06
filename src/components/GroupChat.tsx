@@ -145,7 +145,7 @@ export default function GroupChat({ weddingId, onClose, embedded = false }: { we
           const hasGap = !!previous && Number(message.sentAt.microsSinceUnixEpoch - previous.sentAt.microsSinceUnixEpoch) > 5 * 60 * 1_000_000;
           return <div key={String(message.id)}>{newDay && <p className="chat-day"><span>{messageDay(message.sentAt)}</span></p>}{hasGap && !newDay && <p className="chat-gap"><span>{messageTime(message.sentAt)}</span></p>}<article className={`group-chat-message ${own ? 'own' : ''} ${hasGap && !newDay ? 'spaced' : ''}`}>
             {!own && <span className="message-avatar" aria-hidden>{initials(name)}</span>}
-            <div className="message-bubble">{!own && <b>{name}</b>}{message.source === 'whatsapp' && <small className="imported-message-label">WhatsApp import · needs review</small>}<p>{message.body}</p><time>{messageTime(message.sentAt)}</time></div>
+            <div className="message-bubble">{!own && <b>{name}</b>}{message.source === 'whatsapp' && <small className="imported-message-label">WhatsApp import · needs review</small>}{message.source === 'voice_call' && <small className="imported-message-label">Call note · needs review</small>}<p>{message.body}</p><time>{messageTime(message.sentAt)}</time></div>
           </article></div>;
         })}
         <div ref={endRef} />

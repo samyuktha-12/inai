@@ -161,6 +161,47 @@ export const Member = __t.object("Member", {
 });
 export type Member = __Infer<typeof Member>;
 
+export const Menu = __t.object("Menu", {
+  id: __t.u64(),
+  weddingId: __t.u64(),
+  eventId: __t.u64(),
+  title: __t.string(),
+  serviceStyle: __t.string(),
+  guestCount: __t.option(__t.u32()),
+  dietaryNotes: __t.option(__t.string()),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+  finalizedBy: __t.option(__t.identity()),
+  finalizedAt: __t.option(__t.timestamp()),
+});
+export type Menu = __Infer<typeof Menu>;
+
+export const MenuItem = __t.object("MenuItem", {
+  id: __t.u64(),
+  menuId: __t.u64(),
+  course: __t.string(),
+  dish: __t.string(),
+  dietaryTags: __t.option(__t.string()),
+  state: __t.string(),
+  source: __t.string(),
+  updatedBy: __t.identity(),
+  confidence: __t.f32(),
+  updatedAt: __t.timestamp(),
+});
+export type MenuItem = __Infer<typeof MenuItem>;
+
+export const MenuItemVote = __t.object("MenuItemVote", {
+  id: __t.u64(),
+  menuItemId: __t.u64(),
+  voterIdentity: __t.identity(),
+  liked: __t.bool(),
+  votedAt: __t.timestamp(),
+});
+export type MenuItemVote = __Infer<typeof MenuItemVote>;
+
 export const MoodItem = __t.object("MoodItem", {
   id: __t.u64(),
   weddingId: __t.u64(),

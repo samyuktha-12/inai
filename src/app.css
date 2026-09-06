@@ -18,3 +18,20 @@
 
 /* Reading hierarchy: titles and supporting detail never share a text line. */
 .dashboard-action{align-items:start}.dashboard-action-copy,.event-list-copy{display:grid!important;min-width:0;gap:6px}.dashboard-action-copy b,.dashboard-action-copy small,.event-list-copy b,.event-list-copy p{display:block!important;max-width:100%;white-space:normal}.dashboard-action-copy b{font-size:clamp(18px,1.3vw,22px);line-height:1.16;letter-spacing:-.02em}.dashboard-action-copy small{margin:0!important;color:var(--ink-soft);font-size:16px;line-height:1.35}.event-list-copy b{font-size:20px;line-height:1.15}.event-list-copy p{margin:0!important;line-height:1.4}.action-list,.event-list{width:100%}.dashboard-workspace .dashboard-column{min-width:0}.dashboard-workspace .dashboard-column:first-child{max-width:760px}.dashboard-workspace .dashboard-column:last-child{max-width:650px;justify-self:end;width:100%}.dashboard-metrics>div{display:grid;align-content:start;gap:0}.dashboard-metrics b{line-height:1.05}.dashboard-metrics small{line-height:1.35}.dashboard-hero{align-items:end}.countdown-cards{align-self:center}.dashboard-section-heading h2{font-size:34px;line-height:1.05}.dashboard-section-heading p{margin-top:7px}.since-yesterday{display:grid;gap:13px}.since-yesterday>b{font-size:16px}.since-yesterday p{margin:0;line-height:1.45}.completed-actions{margin-top:22px}.completed-actions .dashboard-section-heading{margin-bottom:18px}.completed-actions article{min-height:54px;align-items:start}.completed-actions article span{display:grid;gap:4px}.completed-actions article b{font-size:16px;line-height:1.3}.completed-actions article small{font-size:14px}.dashboard-chat{margin-top:42px}.dashboard-chat .dashboard-section-heading{margin-bottom:12px}.open-chat-button{margin-top:6px;font-size:16px}
+
+/* Today header: keep the welcome and plan summary on one deliberate baseline. */
+.today-dashboard{max-width:1720px}
+.dashboard-hero{grid-template-columns:minmax(0,1fr) auto;min-height:0;align-items:end;gap:clamp(36px,6vw,120px);padding:20px 0 34px}
+.dashboard-welcome{min-width:0}
+.dashboard-welcome h1{max-width:780px;margin-top:9px;font-size:clamp(46px,4.35vw,72px);line-height:.96}
+.countdown-cards{display:grid;grid-template-columns:repeat(3,minmax(112px,1fr));align-self:end;width:min(100%,468px)}
+.countdown-cards>div{display:grid;align-content:end;min-width:0;min-height:102px;padding:0 clamp(14px,1.8vw,28px) 3px}
+.countdown-cards b{margin:0 0 9px;font-size:clamp(38px,3.2vw,52px);line-height:.88}
+.countdown-cards span{font-size:15px;line-height:1.2}
+.dashboard-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.dashboard-metrics>div{min-height:164px;padding:26px clamp(20px,2vw,34px)}
+.dashboard-metrics span{font-size:15px;font-weight:600}
+.dashboard-metrics b{margin:7px 0 11px;font-size:38px}
+.dashboard-metrics small{min-height:41px;padding-top:9px;font-size:15px}
+@media(max-width:900px){.dashboard-hero{grid-template-columns:1fr;gap:30px;padding:12px 0 30px}.dashboard-welcome h1{font-size:clamp(44px,8vw,62px)}.countdown-cards{width:100%;max-width:none}.countdown-cards>div{min-height:92px}}
+@media(max-width:560px){.dashboard-hero{gap:25px;padding-top:2px}.dashboard-welcome h1{font-size:42px;line-height:1}.countdown-cards>div{min-height:82px;padding-inline:8px}.countdown-cards b{font-size:36px}.countdown-cards span{font-size:13px}.dashboard-metrics>div{min-height:142px;padding:20px 16px}.dashboard-metrics b{font-size:33px}.dashboard-metrics small{font-size:14px}}

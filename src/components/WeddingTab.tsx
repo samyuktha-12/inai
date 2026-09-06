@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Timestamp } from 'spacetimedb';
-import { AlertTriangle, BadgeIndianRupee, Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, FileText, Image, Landmark, MapPin, MessageCircle, Milestone, Plus, ShieldCheck, Sparkles, Store, Upload, UserPlus, Users, UtensilsCrossed, X } from 'lucide-react';
+import { AlertTriangle, BadgeIndianRupee, Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, FileText, Heart, Image, Landmark, MapPin, MessageCircle, Milestone, Plus, ShieldCheck, Sparkles, Store, Upload, UserPlus, Users, UtensilsCrossed, X } from 'lucide-react';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import { parseImport, type ParsedImport } from '../lib/ingest';
@@ -40,11 +40,12 @@ const eventTemplates = [
   { key: 'reception', title: 'Reception', copy: 'Welcome, food, stage, and arrival details to review.' },
 ] as const;
 
-type View = 'calendar' | 'events' | 'budget' | 'guests' | 'mood' | 'connect';
+type View = 'calendar' | 'events' | 'menus' | 'budget' | 'guests' | 'mood' | 'connect';
 
 const weddingSections = [
   { key: 'calendar', label: 'Timeline', hint: 'See the days ahead', icon: CalendarDays },
   { key: 'events', label: 'Events', hint: 'Check what is ready', icon: ClipboardCheck },
+  { key: 'menus', label: 'Menus', hint: 'Plan food together', icon: UtensilsCrossed },
   { key: 'budget', label: 'Budget', hint: 'Track money and vendors', icon: BadgeIndianRupee },
   { key: 'guests', label: 'People', hint: 'Bring in guest details', icon: Users },
   { key: 'mood', label: 'Ideas', hint: 'Keep inspiration together', icon: Image },
@@ -116,7 +117,7 @@ function CalendarItinerary({ weddingId, wedding, events, canManage }: { weddingI
       </div>
       <aside className="itinerary-rail"><div className="rail-heading"><Milestone size={18}/><div><p className="section-label">Milestones</p><h3>Key checkpoints</h3></div></div><div className="checkpoint-list">{checkpoints.length ? checkpoints.map((checkpoint, index) => <article key={String(checkpoint.id)}><span className="checkpoint-marker">{index === 0 ? <CheckCircle2 size={15}/> : <i />}</span><div><time>{dateFormatter.format(checkpoint.date)}</time><b>{checkpoint.title}</b><p>{checkpoint.venue ?? 'Time and place to confirm'}</p><small>{checkpoint.state === 'reported' ? 'Needs review' : 'Confirmed event'}</small></div></article>) : <p className="itinerary-empty">Mark an event as a key checkpoint to keep it visible here.</p>}</div></aside>
     </div>
-    <div className="itinerary-events"><div className="run-of-show-heading"><div className="rail-heading"><CalendarDays size={18}/><div><p className="section-label">Run of show</p><h3>The day-by-day plan</h3></div></div><p>Times, places, and review status at a glance.</p></div>{datedEvents.length ? <div className="itinerary-event-list">{datedEvents.sort((a, b) => a.date.getTime() - b.date.getTime()).map(event => <article key={String(event.id)}><time dateTime={event.date.toISOString()}><b>{dateFormatter.format(event.date)}</b><span>{eventTimeLabel(event.date)}</span></time><span className={`event-state ${event.state === 'reported' ? 'draft' : 'confirmed'}`}>{event.state === 'reported' ? 'Needs review' : 'Confirmed'}</span><div className="timeline-event-details"><b>{event.title}</b><p>{event.venue ? <><MapPin size={14}/>{event.venue}</> : <><MapPin size={14}/>Venue to confirm</>}</p></div>{event.isCheckpoint && <span className="checkpoint-label"><Milestone size={13}/> Key checkpoint</span>}{canManage && <span className="timeline-event-actions"><button type="button" onClick={() => setEditingEvent(event)} aria-label={`Edit ${event.title}`}>Edit</button></span>}</article>)}</div> : <p className="itinerary-empty">Add event details or a calendar export in Connect. Once your group has reviewed them, the dates will form the run of show here.</p>}</div>
+    <div className="itinerary-events"><div className="run-of-show-heading"><div className="rail-heading"><CalendarDays size={18}/><div><p className="section-label">Run of show</p><h3>The day-by-day plan</h3></div></div><p>Times, places, and review status at a glance.</p></div>{datedEvents.length ? <div className="itinerary-event-list">{datedEvents.sort((a, b) => a.date.getTime() - b.date.getTime()).map(event => <article key={String(event.id)}><time dateTime={event.date.toISOString()}><b>{dateFormatter.format(event.date)}</b><span>{eventTimeLabel(event.date)}</span></time><span className={`event-state ${event.state === 'reported' ? 'draft' : 'confirmed'}`}>{event.state === 'reported' ? 'Needs review' : 'Confirmed'}</span><div className="timeline-event-main"><div className="timeline-event-details"><b>{event.title}</b><p>{event.venue ? <><MapPin size={14}/>{event.venue}</> : <><MapPin size={14}/>Venue to confirm</>}</p></div>{event.isCheckpoint && <span className="checkpoint-label"><Milestone size={13}/> Key checkpoint</span>}</div>{canManage && <span className="timeline-event-actions"><button type="button" onClick={() => setEditingEvent(event)} aria-label={`Edit ${event.title}`}>Edit</button></span>}</article>)}</div> : <p className="itinerary-empty">Add event details or a calendar export in Connect. Once your group has reviewed them, the dates will form the run of show here.</p>}</div>
   </section>;
 }
 
@@ -368,6 +369,56 @@ function MoodBoard({ weddingId }: { weddingId: bigint }) {
   return <section className="mood-board"><div className="mood-board-heading"><div><p className="section-label">Pinterest inspiration</p><h2>A feeling to build from</h2><p>These are source ideas, not final choices. Bring any one into Decide when the family is ready.</p></div><span className="mood-review-badge">Needs review</span></div>{items.length ? <div className="mood-grid">{items.map((item, index) => <article className="mood-card" key={String(item.id)}><img className="mood-swatch" src={thumbnails[index % thumbnails.length]} alt="" /><div><small>Pinterest import · needs review</small><h3>{item.title}</h3><p>{item.note}</p>{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer">Open source board</a>}</div></article>)}</div> : <div className="panel"><Image color="#087d6b"/><h2>Your mood board</h2><p>Shared Pinterest images become grouped draft options on Decide. Nothing is chosen automatically.</p></div>}</section>;
 }
 
+const menuCourses = ['Welcome drink', 'Starter', 'Main', 'Bread or rice', 'Dessert', 'Live counter', 'Late-night bite'];
+
+function MenuWorkspace({ weddingId }: { weddingId: bigint }) {
+  const { identity } = useSpacetimeDB();
+  const [members] = useTable(tables.member);
+  const [events] = useTable(tables.event);
+  const [menus] = useTable(tables.menu);
+  const [menuItems] = useTable(tables.menuItem);
+  const [menuVotes] = useTable(tables.menuItemVote);
+  const createMenu = useReducer(reducers.createMenu);
+  const addMenuItem = useReducer(reducers.addMenuItem);
+  const reviewMenuItem = useReducer(reducers.reviewMenuItem);
+  const voteMenuItem = useReducer(reducers.voteMenuItem);
+  const finalizeMenu = useReducer(reducers.finalizeMenu);
+  const [showNewMenu, setShowNewMenu] = useState(false);
+  const [selectedMenuId, setSelectedMenuId] = useState<bigint | undefined>();
+  const [menuDraft, setMenuDraft] = useState({ eventId: '', title: '', serviceStyle: 'Buffet', guestCount: '', dietaryNotes: '' });
+  const [itemDraft, setItemDraft] = useState({ course: 'Starter', dish: '', dietaryTags: '' });
+  const myHex = identity?.toHexString();
+  const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === myHex);
+  const canManage = membership?.role === 'couple' || membership?.role === 'planner';
+  const weddingEvents = events.filter(event => event.weddingId === weddingId);
+  const weddingMenus = menus.filter(menu => menu.weddingId === weddingId).sort((a, b) => Number(a.id - b.id));
+  const selectedMenu = weddingMenus.find(menu => menu.id === selectedMenuId) ?? weddingMenus.find(menu => menu.state !== 'confirmed') ?? weddingMenus[0];
+  const selectedItems = selectedMenu ? menuItems.filter(item => item.menuId === selectedMenu.id && item.state !== 'unknown') : [];
+  const confirmedItems = selectedItems.filter(item => item.state === 'confirmed');
+  const submitMenu = (form: FormEvent) => {
+    form.preventDefault();
+    if (!menuDraft.eventId || !menuDraft.title.trim()) return;
+    const count = menuDraft.guestCount ? Number(menuDraft.guestCount) : undefined;
+    if (count !== undefined && (!Number.isInteger(count) || count < 1 || count > 100000)) return;
+    createMenu({ weddingId, eventId: BigInt(menuDraft.eventId), title: menuDraft.title.trim(), serviceStyle: menuDraft.serviceStyle, guestCount: count, dietaryNotes: menuDraft.dietaryNotes.trim() || undefined });
+    setMenuDraft({ eventId: '', title: '', serviceStyle: 'Buffet', guestCount: '', dietaryNotes: '' });
+    setShowNewMenu(false);
+  };
+  const submitItem = (form: FormEvent) => {
+    form.preventDefault();
+    if (!selectedMenu || !itemDraft.dish.trim()) return;
+    addMenuItem({ menuId: selectedMenu.id, course: itemDraft.course, dish: itemDraft.dish.trim(), dietaryTags: itemDraft.dietaryTags.trim() || undefined });
+    setItemDraft(current => ({ ...current, dish: '', dietaryTags: '' }));
+  };
+
+  return <section className="menu-workspace">
+    <header className="menu-workspace-heading"><div><p className="section-label">Menus</p><h2>Plan food everyone can feel good about</h2><p>Shape a menu around each event, gather the family’s preferences, then let the couple or planner make the final call. Food ideas stay reviewable until then.</p></div>{canManage && <button className="outline-action" type="button" onClick={() => setShowNewMenu(true)}><Plus size={16}/> Start a menu</button>}</header>
+    <div className="menu-live-note"><span><i/><b>Live shared menu</b><small>Changes, reviews, and preferences update for everyone in the plan.</small></span><span>Finalisation stays with a person</span></div>
+    {showNewMenu && <form className="menu-form" onSubmit={submitMenu}><div className="quick-add-heading"><div><p className="section-label">New menu draft</p><h3>Set the shape first</h3></div><button type="button" onClick={() => setShowNewMenu(false)} aria-label="Close new menu"><X size={18}/></button></div><div className="menu-form-grid"><label>Event<select required value={menuDraft.eventId} onChange={event => setMenuDraft(current => ({ ...current, eventId: event.target.value }))}><option value="" disabled>Choose an event</option>{weddingEvents.map(event => <option key={String(event.id)} value={String(event.id)}>{event.title}</option>)}</select></label><label>Menu name<input required maxLength={160} value={menuDraft.title} onChange={event => setMenuDraft(current => ({ ...current, title: event.target.value }))} placeholder="e.g. Mehendi supper" /></label><label>Service style<select value={menuDraft.serviceStyle} onChange={event => setMenuDraft(current => ({ ...current, serviceStyle: event.target.value }))}><option>Buffet</option><option>Plated meal</option><option>Family-style</option><option>Food stations</option></select></label><label>Expected guests <span>optional</span><input type="number" min="1" max="100000" value={menuDraft.guestCount} onChange={event => setMenuDraft(current => ({ ...current, guestCount: event.target.value }))} placeholder="e.g. 180" /></label></div><label>Dietary notes <span>optional</span><textarea maxLength={600} value={menuDraft.dietaryNotes} onChange={event => setMenuDraft(current => ({ ...current, dietaryNotes: event.target.value }))} placeholder="For example: vegetarian-forward, Jain-friendly main, nut-free dessert" /></label><p>This creates a draft for the group to review. It does not contact or book a caterer.</p><button className="primary-button" type="submit">Create menu draft</button></form>}
+    {!weddingEvents.length ? <div className="panel"><UtensilsCrossed color="#087d6b"/><h2>Add an event first</h2><p>Menus are kept with the event they serve, so the family always knows where each choice belongs.</p></div> : !weddingMenus.length ? <div className="menu-empty"><UtensilsCrossed size={28}/><h3>Start with one event</h3><p>Create a menu draft for a meal, then add candidates course by course for the family to review.</p>{canManage && <button className="primary-button" type="button" onClick={() => setShowNewMenu(true)}>Start a menu</button>}</div> : <div className="menu-layout"><aside className="menu-list" aria-label="Event menus"><p className="section-label">Your menus</p>{weddingMenus.map(menu => { const event = weddingEvents.find(item => item.id === menu.eventId); const count = menuItems.filter(item => item.menuId === menu.id && item.state === 'confirmed').length; return <button type="button" key={String(menu.id)} className={selectedMenu?.id === menu.id ? 'active' : ''} onClick={() => setSelectedMenuId(menu.id)}><UtensilsCrossed size={18}/><span><b>{event?.title ?? 'Event menu'}</b><small>{menu.title} · {count} confirmed dish{count === 1 ? '' : 'es'}</small></span><em>{menu.state === 'confirmed' ? 'Final' : 'Draft'}</em></button>; })}</aside>{selectedMenu && <article className="menu-detail"><header><div><p className="section-label">{selectedMenu.state === 'confirmed' ? 'Final menu' : 'Menu draft'}</p><h3>{selectedMenu.title}</h3><p>{weddingEvents.find(event => event.id === selectedMenu.eventId)?.title ?? 'Event'} · {selectedMenu.serviceStyle}{selectedMenu.guestCount ? ` · ${selectedMenu.guestCount} guests` : ''}</p></div><span className={`menu-state ${selectedMenu.state}`}>{selectedMenu.state === 'confirmed' ? <><Check size={14}/> Finalised</> : 'Needs review'}</span></header>{selectedMenu.dietaryNotes && <div className="menu-dietary"><Heart size={16}/><span><b>Dietary notes</b>{selectedMenu.dietaryNotes}</span></div>}<div className="menu-progress"><span><b>{confirmedItems.length}</b> confirmed dishes</span><span><b>{selectedItems.filter(item => item.state === 'reported').length}</b> to review</span><span><b>{menuVotes.filter(vote => selectedItems.some(item => item.id === vote.menuItemId) && vote.liked).length}</b> family favourites</span></div><div className="menu-course-list">{selectedItems.length ? selectedItems.map(item => { const votes = menuVotes.filter(vote => vote.menuItemId === item.id); const likes = votes.filter(vote => vote.liked).length; const mine = votes.find(vote => vote.voterIdentity.toHexString() === myHex); return <article className={item.state === 'reported' ? 'menu-item reported' : 'menu-item'} key={String(item.id)}><div><span className="menu-course">{item.course}</span><b>{item.dish}</b>{item.dietaryTags && <small>{item.dietaryTags}</small>}</div><div className="menu-item-actions">{selectedMenu.state !== 'confirmed' && <button type="button" className={mine?.liked ? 'menu-like liked' : 'menu-like'} onClick={() => voteMenuItem({ menuItemId: item.id, liked: !mine?.liked })}><Heart size={15} fill={mine?.liked ? 'currentColor' : 'none'}/>{likes}</button>}{item.state === 'reported' ? <><small>Candidate · needs review</small>{canManage && <span><button type="button" onClick={() => reviewMenuItem({ menuItemId: item.id, keep: true })}>Keep</button><button type="button" onClick={() => reviewMenuItem({ menuItemId: item.id, keep: false })}>Remove</button></span>}</> : <small>Confirmed for this menu</small>}</div></article>; }) : <p className="menu-items-empty">Add a dish for the first course your family wants to shape.</p>}</div>{selectedMenu.state !== 'confirmed' && canManage && <form className="menu-item-form" onSubmit={submitItem}><select value={itemDraft.course} onChange={event => setItemDraft(current => ({ ...current, course: event.target.value }))}>{menuCourses.map(course => <option key={course}>{course}</option>)}</select><input required maxLength={160} value={itemDraft.dish} onChange={event => setItemDraft(current => ({ ...current, dish: event.target.value }))} placeholder="Add a dish to consider" /><input maxLength={160} value={itemDraft.dietaryTags} onChange={event => setItemDraft(current => ({ ...current, dietaryTags: event.target.value }))} placeholder="Dietary tags (optional)" /><button type="submit"><Plus size={16}/> Add candidate</button></form>}{selectedMenu.state !== 'confirmed' && canManage && <footer className="menu-finalise"><div><b>Ready to make the final call?</b><p>Only confirmed dishes are included. Finalising locks this menu; it still does not place a catering order.</p></div><button type="button" className="primary-button" disabled={!confirmedItems.length} onClick={() => { if (window.confirm(`Finalise “${selectedMenu.title}” with ${confirmedItems.length} confirmed dishes?`)) finalizeMenu({ menuId: selectedMenu.id }); }}><CheckCircle2 size={16}/> Finalise menu</button></footer>}</article>}</div>}
+  </section>;
+}
+
 function EventWorkspace({ weddingId }: { weddingId: bigint }) {
   const { identity } = useSpacetimeDB();
   const [members] = useTable(tables.member);
@@ -444,9 +495,9 @@ function EventWorkspace({ weddingId }: { weddingId: bigint }) {
             <div className="event-menu-heading">
               <span className="event-menu-icon"><UtensilsCrossed size={19}/></span>
               <div><p className="section-label">Menu</p><h4 id={`event-menu-${eventId}`}>Food for {event.title}</h4></div>
-              <span className="event-menu-status">To plan</span>
+              <span className="event-menu-status">Plan in Menus</span>
             </div>
-            <p>Keep the dishes, service style, and dietary notes for this event together. Nothing is confirmed until your family reviews it.</p>
+            <p>Use the Menus section to shape dishes, service style, and dietary notes with the family. Nothing is confirmed until a person makes the final call.</p>
             <dl className="event-menu-details">
               <div><dt>Menu</dt><dd>No dishes added yet</dd></div>
               <div><dt>Service</dt><dd>To confirm</dd></div>
@@ -582,6 +633,7 @@ export default function WeddingTab({ weddingId, canViewBudget = true }: { weddin
   const items: Record<Exclude<View, 'budget'>, React.ReactNode> = {
     calendar: <CalendarItinerary weddingId={weddingId} wedding={wedding} events={weddingEvents} canManage={canManageTimeline} />,
     events: <EventWorkspace weddingId={weddingId} />,
+    menus: <MenuWorkspace weddingId={weddingId} />,
     guests: <ContactImport weddingId={weddingId} />,
     mood: <MoodBoard weddingId={weddingId} />,
     connect: <ConnectWedding weddingId={weddingId}/>,

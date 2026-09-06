@@ -85,6 +85,31 @@ Only send this after the caller says yes to a read-back such as: “I heard that
 the flowers are arranged. Is that right?” A successful response means
 `state=reported`, not that the task is complete.
 
+### `post_call_suggestion`
+
+- Lifecycle: **on_end**, after the worker has transcribed the caller's note
+  and prepared one short suggested next step.
+- Method: `POST`
+- URL: `https://maincloud.spacetimedb.com/v1/database/DATABASE_ID/route/voice/call-suggestion`
+- Header: `Authorization: Bearer {{INAI_VOICE_WEBHOOK_SECRET}}`
+- JSON body:
+
+```json
+{
+  "phone": "<Sarvam User Identifier>",
+  "weddingId": "<wedding id from get_wedding_context>",
+  "note": "Mum said the caterer still needs the final guest count by Friday.",
+  "suggestion": "Please review whether Priya should confirm the guest count with the caterer.",
+  "confidence": 0.86
+}
+```
+
+This adds a single **Call note · needs review** item to the shared wedding
+chat. Both the note and suggestion are saved as `reported`; the endpoint does
+not create work, place a call, contact a vendor, or update a confirmed plan.
+Do not call it unless the caller has heard and agreed to the read-back of the
+note. Omit `weddingId` only when the caller belongs to exactly one wedding.
+
 ## Family help line instructions
 
 Paste and adapt this into the agent instructions:

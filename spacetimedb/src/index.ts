@@ -379,6 +379,58 @@ const coordinator_request = table(
   }
 );
 
+// Menus are their own shared planning surface, rather than a note attached to
+// an event. This gives every dish a review state and lets the group react to
+// candidates without a vote becoming a commitment to a caterer.
+const menu = table(
+  { name: 'menu', public: true, indexes: [{ accessor: 'by_wedding', algorithm: 'btree', columns: ['weddingId'] }, { accessor: 'by_event', algorithm: 'btree', columns: ['eventId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    weddingId: t.u64(),
+    eventId: t.u64(),
+    title: t.string(),
+    serviceStyle: t.string(),
+    guestCount: t.option(t.u32()).default(undefined),
+    dietaryNotes: t.option(t.string()).default(undefined),
+    state: t.string().default('reported'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+    finalizedBy: t.option(t.identity()).default(undefined),
+    finalizedAt: t.option(t.timestamp()).default(undefined),
+  }
+);
+
+const menu_item = table(
+  { name: 'menu_item', public: true, indexes: [{ accessor: 'by_menu', algorithm: 'btree', columns: ['menuId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    menuId: t.u64(),
+    course: t.string(),
+    dish: t.string(),
+    dietaryTags: t.option(t.string()).default(undefined),
+    state: t.string().default('reported'),
+    source: t.string().default('manual'),
+    updatedBy: t.identity(),
+    confidence: t.f32().default(1),
+    updatedAt: t.timestamp(),
+  }
+);
+
+// One reaction per member per dish. The indexed lookup makes replacing a
+// reaction a deterministic, transactional update instead of client-side state.
+const menu_item_vote = table(
+  { name: 'menu_item_vote', public: true, indexes: [{ accessor: 'by_item_voter', algorithm: 'btree', columns: ['menuItemId', 'voterIdentity'] }, { accessor: 'by_item', algorithm: 'btree', columns: ['menuItemId'] }] },
+  {
+    id: t.u64().primaryKey().autoInc(),
+    menuItemId: t.u64(),
+    voterIdentity: t.identity(),
+    liked: t.bool(),
+    votedAt: t.timestamp(),
+  }
+);
+
 const decision = table(
   { name: 'decision', public: true },
   {
@@ -482,6 +534,9 @@ const spacetimedb = schema({
   guest,
   wedding_message,
   coordinator_request,
+  menu,
+  menu_item,
+  menu_item_vote,
 });
 export default spacetimedb;
 
@@ -1102,6 +1157,77 @@ export const setEventChecklistItemDone = spacetimedb.reducer(
   }
 );
 
+// A menu starts as a reviewable draft. Even though a person creates it in the
+// app, its dishes are still proposals until a manager confirms and finalises
+// them; nothing here books food or contacts a caterer.
+export const createMenu = spacetimedb.reducer(
+  { weddingId: t.u64(), eventId: t.u64(), title: t.string(), serviceStyle: t.string(), guestCount: t.option(t.u32()), dietaryNotes: t.option(t.string()) },
+  (ctx, { weddingId, eventId, title, serviceStyle, guestCount, dietaryNotes }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or planner can start a menu');
+    const event = ctx.db.event.id.find(eventId);
+    if (!event || event.weddingId !== weddingId) throw new SenderError('choose an event from this wedding');
+    const menuTitle = title.trim();
+    const style = serviceStyle.trim();
+    const notes = dietaryNotes?.trim() || undefined;
+    if (!menuTitle || menuTitle.length > 160 || !style || style.length > 80) throw new SenderError('enter a menu name and service style');
+    if (notes && notes.length > 600) throw new SenderError('dietary notes must be 600 characters or fewer');
+    ctx.db.menu.insert({ id: 0n, weddingId, eventId, title: menuTitle, serviceStyle: style, guestCount, dietaryNotes: notes, state: 'reported', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp, finalizedBy: undefined, finalizedAt: undefined });
+  }
+);
+
+export const addMenuItem = spacetimedb.reducer(
+  { menuId: t.u64(), course: t.string(), dish: t.string(), dietaryTags: t.option(t.string()) },
+  (ctx, { menuId, course, dish, dietaryTags }) => {
+    const parent = ctx.db.menu.id.find(menuId);
+    if (!parent || !canManageWedding(ctx, parent.weddingId)) throw new SenderError('only the couple or planner can add a menu candidate');
+    if (parent.state === 'confirmed') throw new SenderError('this menu is finalised');
+    const menuCourse = course.trim();
+    const menuDish = dish.trim();
+    const tags = dietaryTags?.trim() || undefined;
+    if (!menuCourse || menuCourse.length > 80 || !menuDish || menuDish.length > 160) throw new SenderError('enter a course and dish');
+    if (tags && tags.length > 160) throw new SenderError('dietary tags must be 160 characters or fewer');
+    ctx.db.menu_item.insert({ id: 0n, menuId, course: menuCourse, dish: menuDish, dietaryTags: tags, state: 'reported', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+export const reviewMenuItem = spacetimedb.reducer(
+  { menuItemId: t.u64(), keep: t.bool() },
+  (ctx, { menuItemId, keep }) => {
+    const item = ctx.db.menu_item.id.find(menuItemId);
+    if (!item) throw new SenderError('menu item not found');
+    const parent = ctx.db.menu.id.find(item.menuId);
+    if (!parent || !canManageWedding(ctx, parent.weddingId)) throw new SenderError('only the couple or planner can review a menu candidate');
+    if (parent.state === 'confirmed') throw new SenderError('this menu is finalised');
+    ctx.db.menu_item.id.update({ ...item, state: keep ? 'confirmed' : 'unknown', source: 'manual', updatedBy: ctx.sender, confidence: keep ? 1 : 0, updatedAt: ctx.timestamp });
+  }
+);
+
+export const voteMenuItem = spacetimedb.reducer(
+  { menuItemId: t.u64(), liked: t.bool() },
+  (ctx, { menuItemId, liked }) => {
+    const item = ctx.db.menu_item.id.find(menuItemId);
+    if (!item) throw new SenderError('menu item not found');
+    const parent = ctx.db.menu.id.find(item.menuId);
+    if (!parent || !membershipFor(ctx, parent.weddingId)) throw new SenderError('only wedding members can vote');
+    if (parent.state === 'confirmed' || item.state === 'unknown') throw new SenderError('this menu item is no longer open for votes');
+    const [existing] = [...ctx.db.menu_item_vote.by_item_voter.filter([menuItemId, ctx.sender])];
+    if (existing) ctx.db.menu_item_vote.id.update({ ...existing, liked, votedAt: ctx.timestamp });
+    else ctx.db.menu_item_vote.insert({ id: 0n, menuItemId, voterIdentity: ctx.sender, liked, votedAt: ctx.timestamp });
+  }
+);
+
+export const finalizeMenu = spacetimedb.reducer(
+  { menuId: t.u64() },
+  (ctx, { menuId }) => {
+    const existing = ctx.db.menu.id.find(menuId);
+    if (!existing || !canManageWedding(ctx, existing.weddingId)) throw new SenderError('only the couple or planner can finalise a menu');
+    if (existing.state === 'confirmed') throw new SenderError('this menu is already finalised');
+    const confirmedItems = [...ctx.db.menu_item.by_menu.filter(menuId)].filter(item => item.state === 'confirmed');
+    if (!confirmedItems.length) throw new SenderError('confirm at least one menu item before finalising');
+    ctx.db.menu.id.update({ ...existing, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp, finalizedBy: ctx.sender, finalizedAt: ctx.timestamp });
+  }
+);
+
 export const setBudget = spacetimedb.reducer(
   { weddingId: t.u64(), amountPaise: t.i64() },
   (ctx, { weddingId, amountPaise }) => {
@@ -1648,6 +1774,85 @@ export const voiceReportTaskDone = spacetimedb.httpHandler((ctx, request) => {
   });
 });
 
+// On-end hook for the family/coordinator voice agents. The voice worker does
+// the transcription and suggestion-making outside SpaceTimeDB, then posts the
+// caller's note and its suggested next step here. This handler only adds a
+// reported chat item for people to review; it never creates a task, contacts
+// anyone, or changes a confirmed wedding fact.
+export const voiceCallSuggestion = spacetimedb.httpHandler((ctx, request) => {
+  const payload = request.json() as {
+    phone?: unknown;
+    weddingId?: unknown;
+    note?: unknown;
+    suggestion?: unknown;
+    confidence?: unknown;
+  };
+
+  return ctx.withTx(tx => {
+    if (!checkWebhookAuth(tx, request)) {
+      return jsonResponse(401, { error: 'unauthorized' });
+    }
+
+    const phone = typeof payload.phone === 'string' ? payload.phone.trim() : '';
+    const note = typeof payload.note === 'string' ? payload.note.trim() : '';
+    const suggestion = typeof payload.suggestion === 'string' ? payload.suggestion.trim() : '';
+    const confidence = typeof payload.confidence === 'number' ? payload.confidence : 0.8;
+    if (!phone || !note || !suggestion) {
+      return jsonResponse(400, { error: 'phone, note, and suggestion are required' });
+    }
+    if (note.length > 2_000 || suggestion.length > 1_000) {
+      return jsonResponse(400, { error: 'note or suggestion is too long' });
+    }
+    if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+      return jsonResponse(400, { error: 'confidence must be between 0 and 1' });
+    }
+
+    const [person] = [...tx.db.participant.by_phone.filter(phone)];
+    if (!person) {
+      return jsonResponse(404, { error: 'no participant with this phone number' });
+    }
+
+    const memberships = [...tx.db.member.by_identity.filter(person.identity)];
+    let weddingId: bigint | undefined;
+    if (typeof payload.weddingId === 'string' && /^\d+$/.test(payload.weddingId)) {
+      weddingId = BigInt(payload.weddingId);
+    } else if (typeof payload.weddingId === 'number' && Number.isSafeInteger(payload.weddingId) && payload.weddingId >= 0) {
+      weddingId = BigInt(payload.weddingId);
+    } else if (payload.weddingId === undefined && memberships.length === 1) {
+      weddingId = memberships[0].weddingId;
+    }
+    if (weddingId === undefined) {
+      return jsonResponse(400, { error: 'weddingId is required when the caller belongs to more than one wedding' });
+    }
+    if (!memberships.some(membership => membership.weddingId === weddingId)) {
+      return jsonResponse(403, { error: 'caller is not a member of this wedding' });
+    }
+
+    const body = `Call note from ${person.name} (needs review)\n${note}\n\nSuggested next step (needs review)\n${suggestion}`;
+    const message = tx.db.wedding_message.insert({
+      id: 0n,
+      weddingId,
+      body,
+      // The identified caller is the source of the note; the worker never
+      // impersonates an arbitrary identity supplied in the webhook body.
+      sentBy: person.identity,
+      sentAt: ctx.timestamp,
+      state: 'reported',
+      source: 'voice_call',
+      updatedBy: person.identity,
+      confidence,
+      updatedAt: ctx.timestamp,
+    });
+
+    return jsonResponse(201, {
+      id: message.id.toString(),
+      weddingId: weddingId.toString(),
+      state: 'reported',
+      deliveredTo: 'wedding_chat',
+    });
+  });
+});
+
 // An invitation code is a bearer credential. This endpoint reveals only the
 // small amount of context a recipient needs before accepting it; invitation
 // rows and their codes remain private tables.
@@ -1676,5 +1881,6 @@ export const voiceRoutes = spacetimedb.httpRouter(
   new Router()
     .get('/voice/context', voiceContext)
     .post('/voice/report-task-done', voiceReportTaskDone)
+    .post('/voice/call-suggestion', voiceCallSuggestion)
     .get('/invites/preview', invitationPreview)
 );

@@ -37,6 +37,7 @@ import {
 import AcceptWeddingInvitationReducer from "./accept_wedding_invitation_reducer";
 import AddEventChecklistItemReducer from "./add_event_checklist_item_reducer";
 import AddMemberReducer from "./add_member_reducer";
+import AddMenuItemReducer from "./add_menu_item_reducer";
 import ApplyEventTemplateReducer from "./apply_event_template_reducer";
 import CastVoteReducer from "./cast_vote_reducer";
 import ConfirmEventChecklistItemReducer from "./confirm_event_checklist_item_reducer";
@@ -47,17 +48,20 @@ import CreateDecisionReducer from "./create_decision_reducer";
 import CreateEventReducer from "./create_event_reducer";
 import CreateExpenseReducer from "./create_expense_reducer";
 import CreateGuestReducer from "./create_guest_reducer";
+import CreateMenuReducer from "./create_menu_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateVendorReducer from "./create_vendor_reducer";
 import CreateWeddingReducer from "./create_wedding_reducer";
 import CreateWeddingInvitationReducer from "./create_wedding_invitation_reducer";
 import DeclineWeddingInvitationReducer from "./decline_wedding_invitation_reducer";
 import DeleteEventReducer from "./delete_event_reducer";
+import FinalizeMenuReducer from "./finalize_menu_reducer";
 import LinkPhoneReducer from "./link_phone_reducer";
 import LockDecisionReducer from "./lock_decision_reducer";
 import RecordImportedExpenseReducer from "./record_imported_expense_reducer";
 import RequestCoordinatorActionReducer from "./request_coordinator_action_reducer";
 import RequestIngestReducer from "./request_ingest_reducer";
+import ReviewMenuItemReducer from "./review_menu_item_reducer";
 import SeedPriyaRahulDemoReducer from "./seed_priya_rahul_demo_reducer";
 import SendWeddingMessageReducer from "./send_wedding_message_reducer";
 import SetBudgetReducer from "./set_budget_reducer";
@@ -77,6 +81,7 @@ import ToggleTaskReducer from "./toggle_task_reducer";
 import UpdateEventReducer from "./update_event_reducer";
 import UpdateGuestCoordinationReducer from "./update_guest_coordination_reducer";
 import UpdateMyProfileReducer from "./update_my_profile_reducer";
+import VoteMenuItemReducer from "./vote_menu_item_reducer";
 
 // Import all procedure arg schemas
 
@@ -92,6 +97,9 @@ import ExpenseRow from "./expense_table";
 import GuestRow from "./guest_table";
 import IngestSourceRow from "./ingest_source_table";
 import MemberRow from "./member_table";
+import MenuRow from "./menu_table";
+import MenuItemRow from "./menu_item_table";
+import MenuItemVoteRow from "./menu_item_vote_table";
 import MoodItemRow from "./mood_item_table";
 import ParticipantRow from "./participant_table";
 import TaskRow from "./task_table";
@@ -263,6 +271,55 @@ const tablesSchema = __schema({
       { name: 'member_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MemberRow),
+  menu: __table({
+    name: 'menu',
+    indexes: [
+      { accessor: 'by_event', name: 'menu_event_id_idx_btree', algorithm: 'btree', columns: [
+        'eventId',
+      ] },
+      { accessor: 'id', name: 'menu_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_wedding', name: 'menu_wedding_id_idx_btree', algorithm: 'btree', columns: [
+        'weddingId',
+      ] },
+    ],
+    constraints: [
+      { name: 'menu_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MenuRow),
+  menuItem: __table({
+    name: 'menu_item',
+    indexes: [
+      { accessor: 'id', name: 'menu_item_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_menu', name: 'menu_item_menu_id_idx_btree', algorithm: 'btree', columns: [
+        'menuId',
+      ] },
+    ],
+    constraints: [
+      { name: 'menu_item_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MenuItemRow),
+  menuItemVote: __table({
+    name: 'menu_item_vote',
+    indexes: [
+      { accessor: 'id', name: 'menu_item_vote_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'by_item', name: 'menu_item_vote_menu_item_id_idx_btree', algorithm: 'btree', columns: [
+        'menuItemId',
+      ] },
+      { accessor: 'by_item_voter', name: 'menu_item_vote_menu_item_id_voter_identity_idx_btree', algorithm: 'btree', columns: [
+        'menuItemId',
+        'voterIdentity',
+      ] },
+    ],
+    constraints: [
+      { name: 'menu_item_vote_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, MenuItemVoteRow),
   moodItem: __table({
     name: 'mood_item',
     indexes: [
@@ -407,6 +464,7 @@ const reducersSchema = __reducers(
   __reducerSchema("accept_wedding_invitation", AcceptWeddingInvitationReducer),
   __reducerSchema("add_event_checklist_item", AddEventChecklistItemReducer),
   __reducerSchema("add_member", AddMemberReducer),
+  __reducerSchema("add_menu_item", AddMenuItemReducer),
   __reducerSchema("apply_event_template", ApplyEventTemplateReducer),
   __reducerSchema("cast_vote", CastVoteReducer),
   __reducerSchema("confirm_event_checklist_item", ConfirmEventChecklistItemReducer),
@@ -417,17 +475,20 @@ const reducersSchema = __reducers(
   __reducerSchema("create_event", CreateEventReducer),
   __reducerSchema("create_expense", CreateExpenseReducer),
   __reducerSchema("create_guest", CreateGuestReducer),
+  __reducerSchema("create_menu", CreateMenuReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_vendor", CreateVendorReducer),
   __reducerSchema("create_wedding", CreateWeddingReducer),
   __reducerSchema("create_wedding_invitation", CreateWeddingInvitationReducer),
   __reducerSchema("decline_wedding_invitation", DeclineWeddingInvitationReducer),
   __reducerSchema("delete_event", DeleteEventReducer),
+  __reducerSchema("finalize_menu", FinalizeMenuReducer),
   __reducerSchema("link_phone", LinkPhoneReducer),
   __reducerSchema("lock_decision", LockDecisionReducer),
   __reducerSchema("record_imported_expense", RecordImportedExpenseReducer),
   __reducerSchema("request_coordinator_action", RequestCoordinatorActionReducer),
   __reducerSchema("request_ingest", RequestIngestReducer),
+  __reducerSchema("review_menu_item", ReviewMenuItemReducer),
   __reducerSchema("seed_priya_rahul_demo", SeedPriyaRahulDemoReducer),
   __reducerSchema("send_wedding_message", SendWeddingMessageReducer),
   __reducerSchema("set_budget", SetBudgetReducer),
@@ -447,6 +508,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_event", UpdateEventReducer),
   __reducerSchema("update_guest_coordination", UpdateGuestCoordinationReducer),
   __reducerSchema("update_my_profile", UpdateMyProfileReducer),
+  __reducerSchema("vote_menu_item", VoteMenuItemReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
@@ -465,6 +527,10 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "event_checklist_item": Omit<typeof tablesSchema.schemaType.tables["eventChecklistItem"], "accessorName"> & { readonly accessorName: "event_checklist_item" };
     /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
     readonly "ingest_source": Omit<typeof tablesSchema.schemaType.tables["ingestSource"], "accessorName"> & { readonly accessorName: "ingest_source" };
+    /** @deprecated Use `menuItem` instead. This alias will be removed in the next major version. */
+    readonly "menu_item": Omit<typeof tablesSchema.schemaType.tables["menuItem"], "accessorName"> & { readonly accessorName: "menu_item" };
+    /** @deprecated Use `menuItemVote` instead. This alias will be removed in the next major version. */
+    readonly "menu_item_vote": Omit<typeof tablesSchema.schemaType.tables["menuItemVote"], "accessorName"> & { readonly accessorName: "menu_item_vote" };
     /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */
     readonly "mood_item": Omit<typeof tablesSchema.schemaType.tables["moodItem"], "accessorName"> & { readonly accessorName: "mood_item" };
     /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
@@ -498,6 +564,8 @@ const tableAccessorAliases = {
   "decision_option": "decisionOption",
   "event_checklist_item": "eventChecklistItem",
   "ingest_source": "ingestSource",
+  "menu_item": "menuItem",
+  "menu_item_vote": "menuItemVote",
   "mood_item": "moodItem",
   "vendor_consent": "vendorConsent",
   "wedding_agent": "weddingAgent",
@@ -533,6 +601,10 @@ export type DbView = __DbViewBase & {
   readonly "event_checklist_item": __DbViewBase["eventChecklistItem"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __DbViewBase["ingestSource"];
+  /** @deprecated Use `menuItem` instead. This alias will be removed in the next major version. */
+  readonly "menu_item": __DbViewBase["menuItem"];
+  /** @deprecated Use `menuItemVote` instead. This alias will be removed in the next major version. */
+  readonly "menu_item_vote": __DbViewBase["menuItemVote"];
   /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */
   readonly "mood_item": __DbViewBase["moodItem"];
   /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
@@ -557,6 +629,10 @@ export type Tables = __TablesBase & {
   readonly "event_checklist_item": __TablesBase["eventChecklistItem"];
   /** @deprecated Use `ingestSource` instead. This alias will be removed in the next major version. */
   readonly "ingest_source": __TablesBase["ingestSource"];
+  /** @deprecated Use `menuItem` instead. This alias will be removed in the next major version. */
+  readonly "menu_item": __TablesBase["menuItem"];
+  /** @deprecated Use `menuItemVote` instead. This alias will be removed in the next major version. */
+  readonly "menu_item_vote": __TablesBase["menuItemVote"];
   /** @deprecated Use `moodItem` instead. This alias will be removed in the next major version. */
   readonly "mood_item": __TablesBase["moodItem"];
   /** @deprecated Use `vendorConsent` instead. This alias will be removed in the next major version. */
