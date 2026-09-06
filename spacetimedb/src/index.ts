@@ -855,7 +855,7 @@ export const createCustomWeddingAgent = spacetimedb.reducer(
 
 // A deliberately narrow, idempotent fixture for the one public demo wedding.
 // It is unavailable to normal wedding members and does not process user data.
-export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
+function seedPriyaRahulDemoData(ctx: Ctx) {
   const isDemoAppAdmin = ctx.sender.toHexString() === 'c20062ae5d5c3fba6488abffb4db96a9cc793f9300697fbba5fee78670432648';
   if (!isDemoAppAdmin) throw new SenderError('only the demo app administrator can load demo data');
   const weddingId = 1n;
@@ -887,8 +887,11 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     if (has(ctx.db.event.iter(), title)) return;
     ctx.db.event.insert({ id: 0n, weddingId, title, startsAt: undefined, venue, state: 'reported', source: 'whatsapp_export', updatedBy: ctx.sender, confidence, updatedAt: ctx.timestamp, isCheckpoint: false });
   };
-  addEvent('Morning muhurtham', undefined, 0.73);
-  addEvent('Banyan Court venue visit (proposed)', 'Banyan Court', 0.74);
+  addEvent('Mehendi afternoon', 'Banyan Court lawn', 0.88);
+  addEvent('Sangeet evening', 'Banyan Court ballroom', 0.9);
+  addEvent('Wedding ceremony', 'Kapaleeshwarar Temple courtyard', 0.92);
+  addEvent('Reception dinner', 'Banyan Court ballroom', 0.87);
+  addEvent('Morning muhurtham', 'Kapaleeshwarar Temple courtyard', 0.84);
   const planner = [...ctx.db.participant.iter()].find(person => person.name === 'Anonymous User');
   if (planner && ![...ctx.db.member.by_wedding_identity.filter([weddingId, planner.identity])].length) {
     ctx.db.participant.identity.update({ ...planner, name: 'Ananya Mehta', profileState: 'confirmed', profileSource: 'manual', profileUpdatedAt: ctx.timestamp });
@@ -915,16 +918,18 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     ctx.db.mood_item.insert({ id: 0n, weddingId, title, note, palette, state: 'reported', source: 'pinterest', updatedBy: ctx.sender, confidence: 0.9, updatedAt: ctx.timestamp, sourceUrl });
   }
   for (const [name, side, homeCity, note] of [
-    ['Lakshmi', 'bride', 'Chennai', 'Will list Coimbatore aunties and Bengaluru cousins who need rooms by Wednesday.'],
-    ['Suresh', 'bride', 'Chennai', 'Can join a proposed Sunday morning visit to Banyan Court.'],
-    ['Aditi', undefined, undefined, 'Researching family accommodation options; needs tentative room counts from both sides.'],
-    ['Rahul-side Bengaluru family', 'groom', 'Bengaluru', 'Rahul will share the accommodation list with Aditi by Wednesday.'],
+    ['Lakshmi Iyer', 'bride', 'Chennai', 'Priya’s aunt will confirm the Coimbatore family room count after speaking with them.'],
+    ['Suresh Iyer', 'bride', 'Chennai', 'Can join the final venue walk-through and review elder seating.'],
+    ['Aditi Menon', 'bride', 'Bengaluru', 'Travelling with two children; needs an airport pickup option once travel dates are confirmed.'],
+    ['Karthik Mehta', 'groom', 'Bengaluru', 'Will share the Bengaluru cousins’ travel plan with the family.'],
+    ['Nandini Rao', 'groom', 'Hyderabad', 'Awaiting confirmation before a room is held.'],
+    ['Vikram Shah', 'groom', 'Mumbai', 'May attend only the reception; follow up after work travel is confirmed.'],
   ] as const) {
     if ([...ctx.db.guest.iter()].some(item => item.weddingId === weddingId && item.name === name)) continue;
     ctx.db.guest.insert({ id: 0n, weddingId, name, side, homeCity, rsvpStatus: 'not invited', state: 'reported', source: 'whatsapp_export', updatedBy: ctx.sender, confidence: 0.89, updatedAt: ctx.timestamp, note, needsFollowUp: false });
   }
   for (const [kind, itemCount] of [
-    ['pinterest', 3], ['whatsapp', 19], ['guests', 4], ['quotes', 3], ['calendar', 0], ['vendor_details', 3],
+    ['pinterest', 4], ['whatsapp', 26], ['guests', 6], ['quotes', 4], ['calendar', 5], ['vendor_details', 4],
   ] as const) {
     if ([...ctx.db.ingest_source.iter()].some(item => item.weddingId === weddingId && item.kind === kind && item.status === 'imported')) continue;
     ctx.db.ingest_source.insert({ id: 0n, weddingId, kind, status: 'imported', itemCount, submittedBy: ctx.sender, createdAt: ctx.timestamp });
@@ -989,15 +994,30 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
       }
     }
   };
-  seedMenu('Morning muhurtham', 'Morning muhurtham breakfast', 'To decide after venue visit', 220, 'Lakshmi requested a Tamil breakfast after muhurtham and filter coffee.', [
+  seedMenu('Morning muhurtham', 'Morning muhurtham breakfast', 'Seated South Indian breakfast', 220, 'Include clear Jain-friendly choices and filter coffee service for elders.', [
     { course: 'Breakfast direction', dish: 'Tamil breakfast after muhurtham', tags: 'Requested in family chat' },
     { course: 'Beverage', dish: 'Filter coffee', tags: 'Requested in family chat' },
+    { course: 'Jain-friendly', dish: 'Plain idli with coconut chutney', tags: 'Jain-friendly candidate' },
+  ]);
+  seedMenu('Mehendi afternoon', 'Mehendi garden lunch', 'Leaf-plate lunch with live counters', 160, 'Keep one Jain-friendly counter and a low-spice children’s option.', [
+    { course: 'Welcome drink', dish: 'Tender coconut and nannari cooler', tags: 'Non-alcoholic' },
+    { course: 'Main', dish: 'Mini thali with avial and appalam', tags: 'Vegetarian' },
+    { course: 'Jain-friendly', dish: 'Jain vegetable pulao', tags: 'Jain-friendly candidate' },
+  ]);
+  seedMenu('Sangeet evening', 'Sangeet supper', 'Passed starters and buffet dinner', 240, 'Family asked for a substantial vegetarian supper after performances.', [
+    { course: 'Starter', dish: 'Paneer pepper skewers', tags: 'Vegetarian' },
+    { course: 'Main', dish: 'Chettinad vegetable biryani', tags: 'Vegetarian' },
+    { course: 'Dessert', dish: 'Elaneer payasam', tags: 'Candidate' },
   ]);
   for (const [eventTitle, label] of [
-    ['Morning muhurtham', 'Confirm muhurtham timing with the priest and family'],
-    ['Morning muhurtham', 'Decide the Tamil breakfast after the venue visit'],
-    ['Banyan Court venue visit (proposed)', 'Confirm whether Banyan Court can host the proposed Sunday 10:30 am visit'],
-    ['Banyan Court venue visit (proposed)', 'Compare Banyan Court and The Madras House inclusions for 220 guests'],
+    ['Mehendi afternoon', 'Confirm artist arrival window and final guest count'],
+    ['Mehendi afternoon', 'Choose shade, seating, and a hands-free photo area'],
+    ['Sangeet evening', 'Collect family performance names and rehearsal needs'],
+    ['Sangeet evening', 'Confirm stage, soundcheck, and elder seating plan'],
+    ['Wedding ceremony', 'Confirm muhurtham timing with the priest and both families'],
+    ['Wedding ceremony', 'Review mandap flowers and guest arrival route'],
+    ['Reception dinner', 'Confirm the welcome line, stage timing, and dinner service flow'],
+    ['Morning muhurtham', 'Decide the Tamil breakfast after the family menu review'],
   ] as const) {
     const event = [...ctx.db.event.iter()].find(item => item.weddingId === weddingId && item.title === eventTitle);
     if (!event || [...ctx.db.event_checklist_item.by_event.filter(event.id)].some(item => item.label === label)) continue;
@@ -1015,32 +1035,77 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     ctx.db.expense.insert({ id: 0n, weddingId, category, label, amountPaise, paid: false, vendorId, state: 'reported', source: vendorName ? 'vendor_quote' : 'whatsapp_export', updatedBy: ctx.sender, confidence: vendorName ? 0.99 : 0.88, updatedAt: ctx.timestamp });
   }
   for (const [title, ownerIdentity] of [
-    ['Arrange or confirm the proposed Banyan Court venue visit', rahulIdentity],
+    ['Confirm the Banyan Court contract inclusions before a deposit is considered', rahulIdentity],
     ['Ask whether Frames by Ananya can offer smaller mehendi coverage', priyaIdentity],
+    ['Review the two decor estimates against the ₹3L planning number', priyaIdentity],
+    ['Collect Bengaluru family travel requirements for airport pickups', rahulIdentity],
   ] as const) {
     if ([...ctx.db.task.iter()].some(item => item.weddingId === weddingId && item.title === title)) continue;
     ctx.db.task.insert({ id: 0n, weddingId, title, ownerIdentity, done: false, createdAt: ctx.timestamp, dueAt: undefined, state: 'reported', source: 'whatsapp_export', reportedBy: ctx.sender, confidence: 0.74, reportedAt: ctx.timestamp });
   }
   for (const [body, sentBy] of [
-    ['Target is Chennai, Jan 24 next year. Please keep the weekend free, but this is not booked yet.', rahulIdentity],
-    ['Guest count rough rough: 220 total? My side maybe 85, Priya side around 105, rest friends.', rahulIdentity],
-    ['Banyan Court and The Madras House both have Jan 24 open right now. Nothing is held.', rahulIdentity],
-    ['I like Nila’s floral work from the photos, but no decision yet.', priyaIdentity],
-    ['Budget first. We should keep decor under ₹3L if possible.', priyaIdentity],
-    ['The photographer is available, but no hold has been placed. I will draft the question for you to send.', priyaIdentity],
-    ['Please make sure no vendor is booked from this chat without Priya or Rahul saying yes first.', rahulIdentity],
+    ['We are planning for Chennai in January 2027. Please keep the weekend free; the date is still awaiting family confirmation.', rahulIdentity],
+    ['The current planning count is about 220 guests: around 105 from Priya’s side, 85 from Rahul’s side, and close friends.', rahulIdentity],
+    ['Banyan Court and The Madras House have both shared estimates. Nothing has been reserved or paid yet.', rahulIdentity],
+    ['I like Nila Blooms’ softer jasmine work for the ceremony, but I want to compare it against the budget before deciding.', priyaIdentity],
+    ['Let us keep the decor planning number near ₹3L until we understand what is included in each quote.', priyaIdentity],
+    ['The photographer is available for all four functions. Please prepare a smaller mehendi coverage question for us to review.', priyaIdentity],
+    ['No vendor should be booked, paid, or called from this chat without Priya or Rahul confirming it first.', rahulIdentity],
+    ['Aditi may need an airport pickup from Bengaluru. We can decide the cab plan only after her travel is confirmed.', priyaIdentity],
   ] as const) {
     if ([...ctx.db.wedding_message.iter()].some(message => message.weddingId === weddingId && message.body === body)) continue;
     ctx.db.wedding_message.insert({ id: 0n, weddingId, body, sentBy, sentAt: ctx.timestamp, state: 'reported', source: 'whatsapp_export', updatedBy: ctx.sender, confidence: 0.9, updatedAt: ctx.timestamp });
   }
   for (const [title, options] of [
-    ['Which venue should we visit first?', ['Banyan Court · ₹5.8L estimate', 'The Madras House · ₹6.35L estimate']],
-    ['Which decor quote should we review against the ₹3L planning number?', ['Amaravati Events · ₹2,92,640', 'Nila Blooms Decor · ₹3,89,400']],
+    ['Which venue should the family review first?', ['Banyan Court · ₹5.8L estimate', 'The Madras House · ₹6.35L estimate']],
+    ['Which decor direction should we cost against the ₹3L planning number?', ['Warm jasmine and ivory', 'Marigold and coral entrance']],
+    ['Which sangeet opening should the family use?', ['Bride’s cousins dance', 'Couple entry', 'Parents’ welcome']],
     ['Should we request a smaller mehendi coverage option from Frames by Ananya?', ['Yes, draft the question', 'Keep the existing estimate for now']],
   ] as const) {
     if ([...ctx.db.decision.iter()].some(decision => decision.weddingId === weddingId && decision.title === title)) continue;
     seedDecision(ctx, weddingId, title, [...options]);
   }
+}
+
+export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
+  seedPriyaRahulDemoData(ctx);
+});
+
+// Reset only the fixed, administrator-owned demo wedding. This removes old
+// exploratory rows (for example, "test" polls) without ever touching real
+// wedding data, then recreates a coherent fixture through the normal seed path.
+export const resetPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
+  const isDemoAppAdmin = ctx.sender.toHexString() === 'c20062ae5d5c3fba6488abffb4db96a9cc793f9300697fbba5fee78670432648';
+  if (!isDemoAppAdmin) throw new SenderError('only the demo app administrator can reset demo data');
+  const weddingId = 1n;
+  const eventIds = [...ctx.db.event.iter()].filter(row => row.weddingId === weddingId).map(row => row.id);
+  const menuIds = [...ctx.db.menu.iter()].filter(row => row.weddingId === weddingId).map(row => row.id);
+  const menuItemIds = [...ctx.db.menu_item.iter()].filter(row => menuIds.includes(row.menuId)).map(row => row.id);
+  const decisionIds = [...ctx.db.decision.iter()].filter(row => row.weddingId === weddingId).map(row => row.id);
+  const decisionOptionIds = [...ctx.db.decision_option.iter()].filter(row => decisionIds.includes(row.decisionId)).map(row => row.id);
+  for (const row of [...ctx.db.menu_item_vote.iter()].filter(row => menuItemIds.includes(row.menuItemId))) ctx.db.menu_item_vote.id.delete(row.id);
+  for (const id of menuItemIds) ctx.db.menu_item.id.delete(id);
+  for (const id of menuIds) ctx.db.menu.id.delete(id);
+  for (const row of [...ctx.db.vote.iter()].filter(row => decisionIds.includes(row.decisionId) || decisionOptionIds.includes(row.optionId))) ctx.db.vote.id.delete(row.id);
+  for (const id of decisionOptionIds) ctx.db.decision_option.id.delete(id);
+  for (const id of decisionIds) ctx.db.decision.id.delete(id);
+  for (const row of [...ctx.db.event_checklist_item.iter()].filter(row => row.weddingId === weddingId || eventIds.includes(row.eventId))) ctx.db.event_checklist_item.id.delete(row.id);
+  for (const row of [...ctx.db.vendor_consent.iter()].filter(row => row.weddingId === weddingId)) ctx.db.vendor_consent.id.delete(row.id);
+  for (const row of [...ctx.db.expense.iter()].filter(row => row.weddingId === weddingId)) ctx.db.expense.id.delete(row.id);
+  for (const row of [...ctx.db.budget.iter()].filter(row => row.weddingId === weddingId)) ctx.db.budget.id.delete(row.id);
+  for (const row of [...ctx.db.vendor.iter()].filter(row => row.weddingId === weddingId)) ctx.db.vendor.id.delete(row.id);
+  for (const row of [...ctx.db.guest.iter()].filter(row => row.weddingId === weddingId)) ctx.db.guest.id.delete(row.id);
+  for (const row of [...ctx.db.mood_item.iter()].filter(row => row.weddingId === weddingId)) ctx.db.mood_item.id.delete(row.id);
+  for (const row of [...ctx.db.wedding_message.iter()].filter(row => row.weddingId === weddingId)) ctx.db.wedding_message.id.delete(row.id);
+  for (const row of [...ctx.db.coordinator_request.iter()].filter(row => row.weddingId === weddingId)) ctx.db.coordinator_request.id.delete(row.id);
+  for (const row of [...ctx.db.task.iter()].filter(row => row.weddingId === weddingId)) ctx.db.task.id.delete(row.id);
+  for (const row of [...ctx.db.ingest_source.iter()].filter(row => row.weddingId === weddingId)) ctx.db.ingest_source.id.delete(row.id);
+  for (const row of [...ctx.db.wedding_agent.iter()].filter(row => row.weddingId === weddingId)) ctx.db.wedding_agent.id.delete(row.id);
+  for (const row of [...ctx.db.wedding_agent_setting.iter()].filter(row => row.weddingId === weddingId)) ctx.db.wedding_agent_setting.id.delete(row.id);
+  for (const row of [...ctx.db.custom_wedding_agent.iter()].filter(row => row.weddingId === weddingId)) ctx.db.custom_wedding_agent.id.delete(row.id);
+  for (const id of eventIds) ctx.db.event.id.delete(id);
+  for (const row of [...ctx.db.decision.iter()].filter(row => row.weddingId === undefined && ['Vote on the venue', 'Which mandap?'].includes(row.title))) ctx.db.decision.id.delete(row.id);
+  seedPriyaRahulDemoData(ctx);
 });
 
 export const updateGuestCoordination = spacetimedb.reducer(
