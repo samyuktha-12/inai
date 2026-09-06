@@ -331,6 +331,8 @@ const guest = table(
     updatedBy: t.identity(),
     confidence: t.f32().default(1),
     updatedAt: t.timestamp(),
+    note: t.option(t.string()).default(undefined),
+    needsFollowUp: t.bool().default(false),
   }
 );
 
@@ -857,7 +859,7 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     ['Nandini Rao', 'groom', 'Hyderabad', 'confirmed'],
   ] as const) {
     if ([...ctx.db.guest.iter()].some(item => item.weddingId === weddingId && item.name === name)) continue;
-    ctx.db.guest.insert({ id: 0n, weddingId, name, side, homeCity, rsvpStatus, state: 'reported', source: 'guests', updatedBy: ctx.sender, confidence: 0.88, updatedAt: ctx.timestamp });
+    ctx.db.guest.insert({ id: 0n, weddingId, name, side, homeCity, rsvpStatus, state: 'reported', source: 'guests', updatedBy: ctx.sender, confidence: 0.88, updatedAt: ctx.timestamp, note: undefined, needsFollowUp: false });
   }
   for (const [kind, itemCount] of [
     ['pinterest', 4], ['whatsapp', 8], ['guests', 6], ['quotes', 4], ['calendar', 3], ['vendor_details', 4],
@@ -949,6 +951,17 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
     seedDecision(ctx, weddingId, title, [...options]);
   }
 });
+
+export const updateGuestCoordination = spacetimedb.reducer(
+  { guestId: t.u64(), note: t.option(t.string()), needsFollowUp: t.bool() },
+  (ctx, { guestId, note, needsFollowUp }) => {
+    const existing = ctx.db.guest.id.find(guestId);
+    if (!existing || !canManageWedding(ctx, existing.weddingId)) throw new SenderError('only the couple or event creator can update guest planning notes');
+    const cleanedNote = note?.trim() || undefined;
+    if (cleanedNote && cleanedNote.length > 500) throw new SenderError('guest note must be 500 characters or fewer');
+    ctx.db.guest.id.update({ ...existing, note: cleanedNote, needsFollowUp, updatedBy: ctx.sender, updatedAt: ctx.timestamp });
+  }
+);
 
 export const createEvent = spacetimedb.reducer(
   { weddingId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()), source: t.string(), confidence: t.f32(), isCheckpoint: t.bool() },

@@ -22,4 +22,6 @@ export default __t.row({
   updatedBy: __t.identity().name("updated_by"),
   confidence: __t.f32(),
   updatedAt: __t.timestamp().name("updated_at"),
+  note: __t.option(__t.string()),
+  needsFollowUp: __t.bool().name("needs_follow_up"),
 });

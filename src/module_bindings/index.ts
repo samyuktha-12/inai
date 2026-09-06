@@ -74,6 +74,7 @@ import SetWeddingAgentReducer from "./set_wedding_agent_reducer";
 import SetWeddingAgentInstructionsReducer from "./set_wedding_agent_instructions_reducer";
 import ToggleTaskReducer from "./toggle_task_reducer";
 import UpdateEventReducer from "./update_event_reducer";
+import UpdateGuestCoordinationReducer from "./update_guest_coordination_reducer";
 import UpdateMyProfileReducer from "./update_my_profile_reducer";
 
 // Import all procedure arg schemas
@@ -442,6 +443,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_wedding_agent_instructions", SetWeddingAgentInstructionsReducer),
   __reducerSchema("toggle_task", ToggleTaskReducer),
   __reducerSchema("update_event", UpdateEventReducer),
+  __reducerSchema("update_guest_coordination", UpdateGuestCoordinationReducer),
   __reducerSchema("update_my_profile", UpdateMyProfileReducer),
 );
 

@@ -46,6 +46,7 @@ import SetWeddingAgentReducer from "../set_wedding_agent_reducer";
 import SetWeddingAgentInstructionsReducer from "../set_wedding_agent_instructions_reducer";
 import ToggleTaskReducer from "../toggle_task_reducer";
 import UpdateEventReducer from "../update_event_reducer";
+import UpdateGuestCoordinationReducer from "../update_guest_coordination_reducer";
 import UpdateMyProfileReducer from "../update_my_profile_reducer";
 
 export type AcceptWeddingInvitationParams = __Infer<typeof AcceptWeddingInvitationReducer>;
@@ -88,5 +89,6 @@ export type SetWeddingAgentParams = __Infer<typeof SetWeddingAgentReducer>;
 export type SetWeddingAgentInstructionsParams = __Infer<typeof SetWeddingAgentInstructionsReducer>;
 export type ToggleTaskParams = __Infer<typeof ToggleTaskReducer>;
 export type UpdateEventParams = __Infer<typeof UpdateEventReducer>;
+export type UpdateGuestCoordinationParams = __Infer<typeof UpdateGuestCoordinationReducer>;
 export type UpdateMyProfileParams = __Infer<typeof UpdateMyProfileReducer>;
 

@@ -130,6 +130,8 @@ export const Guest = __t.object("Guest", {
   updatedBy: __t.identity(),
   confidence: __t.f32(),
   updatedAt: __t.timestamp(),
+  note: __t.option(__t.string()),
+  needsFollowUp: __t.bool(),
 });
 export type Guest = __Infer<typeof Guest>;
 
