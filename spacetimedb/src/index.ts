@@ -944,6 +944,66 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
   if (![...ctx.db.wedding_agent_setting.by_wedding_kind.filter([weddingId, 'menu_planner'])].length) {
     ctx.db.wedding_agent_setting.insert({ id: 0n, weddingId, kind: 'menu_planner', instructions: 'Draft a mostly vegetarian Tamil menu for each event, include one Jain-friendly option, and keep every suggestion ready for family review.', state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
   }
+  // Menu fixture data exercises the same review and finalisation states people
+  // see in the app: a draft with family favourites alongside a final human
+  // decision. It is intentionally idempotent so loading the demo never
+  // duplicates candidates or votes.
+  const seedMenu = (
+    eventTitle: string,
+    title: string,
+    serviceStyle: string,
+    guestCount: number,
+    dietaryNotes: string,
+    state: 'reported' | 'confirmed',
+    items: Array<{ course: string; dish: string; tags?: string; state: 'reported' | 'confirmed'; likes?: Array<'priya' | 'rahul'> }>,
+  ) => {
+    const event = [...ctx.db.event.iter()].find(item => item.weddingId === weddingId && item.title === eventTitle);
+    if (!event) return;
+    let record = [...ctx.db.menu.by_wedding.filter(weddingId)].find(item => item.title === title);
+    if (!record) {
+      record = ctx.db.menu.insert({
+        id: 0n,
+        weddingId,
+        eventId: event.id,
+        title,
+        serviceStyle,
+        guestCount,
+        dietaryNotes,
+        state,
+        source: 'manual',
+        updatedBy: ctx.sender,
+        confidence: 1,
+        updatedAt: ctx.timestamp,
+        finalizedBy: state === 'confirmed' ? ctx.sender : undefined,
+        finalizedAt: state === 'confirmed' ? ctx.timestamp : undefined,
+      });
+    }
+    for (const item of items) {
+      let candidate = [...ctx.db.menu_item.by_menu.filter(record.id)].find(existing => existing.dish === item.dish);
+      if (!candidate) {
+        candidate = ctx.db.menu_item.insert({ id: 0n, menuId: record.id, course: item.course, dish: item.dish, dietaryTags: item.tags, state: item.state, source: 'manual', updatedBy: ctx.sender, confidence: item.state === 'confirmed' ? 1 : 0.86, updatedAt: ctx.timestamp });
+      }
+      for (const person of item.likes ?? []) {
+        const identity = person === 'priya' ? priyaIdentity : rahulIdentity;
+        if ([...ctx.db.menu_item_vote.by_item_voter.filter([candidate.id, identity])].length) continue;
+        ctx.db.menu_item_vote.insert({ id: 0n, menuItemId: candidate.id, voterIdentity: identity, liked: true, votedAt: ctx.timestamp });
+      }
+    }
+  };
+  seedMenu('Mehendi evening', 'Garden mehendi supper', 'Food stations', 160, 'Vegetarian-forward. Keep one Jain-friendly main and a nut-free dessert.', 'reported', [
+    { course: 'Welcome drink', dish: 'Tender coconut and lime cooler', tags: 'Vegan · gluten-free', state: 'confirmed', likes: ['priya', 'rahul'] },
+    { course: 'Starter', dish: 'Mini paniyaram with tomato chutney', tags: 'Vegetarian', state: 'reported', likes: ['priya'] },
+    { course: 'Main', dish: 'Jain vegetable pulao', tags: 'Jain-friendly · vegan', state: 'reported', likes: ['rahul'] },
+    { course: 'Live counter', dish: 'Kothu parotta counter', tags: 'Vegetarian option', state: 'reported', likes: ['priya', 'rahul'] },
+    { course: 'Dessert', dish: 'Tender coconut payasam', tags: 'Nut-free', state: 'confirmed', likes: ['priya'] },
+  ]);
+  seedMenu('Wedding ceremony', 'Ceremony lunch', 'Buffet', 240, 'Mostly vegetarian Tamil lunch with a Jain-friendly main and filter coffee served after dessert.', 'confirmed', [
+    { course: 'Welcome drink', dish: 'Panakam and buttermilk', tags: 'Vegetarian', state: 'confirmed' },
+    { course: 'Main', dish: 'Banana-leaf South Indian lunch', tags: 'Vegetarian', state: 'confirmed' },
+    { course: 'Main', dish: 'Jain vegetable korma', tags: 'Jain-friendly', state: 'confirmed' },
+    { course: 'Dessert', dish: 'Elaneer payasam', tags: 'Nut-free', state: 'confirmed' },
+    { course: 'Late-night bite', dish: 'Filter coffee and mini mysore pak', tags: 'Vegetarian', state: 'confirmed' },
+  ]);
   for (const [eventTitle, label] of [
     ['Mehendi evening', 'Confirm artist arrival time and number of artists'],
     ['Mehendi evening', 'Arrange shaded seating, drinks, and a photo corner'],
