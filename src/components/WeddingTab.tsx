@@ -9,6 +9,7 @@ import ceremonyMandap from '../../dataset/priya-rahul/02-pinterest-mood-boards/i
 import dinnerCelebration from '../../dataset/priya-rahul/02-pinterest-mood-boards/images/dinner-celebration.png';
 import '../wedding-workspace.css';
 import '../timeline-calendar.css';
+import '../event-modal.css';
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -124,7 +125,7 @@ function AddEvent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void
     createEvent({ weddingId, title: title.trim(), venue: venue.trim() || undefined, startsAt: startsAt ? Timestamp.fromDate(new Date(startsAt)) : undefined, source: 'manual', confidence: 1, isCheckpoint });
     onDone();
   };
-  return <form className="quick-add-form" onSubmit={submit}>
+  return <div className="modal-backdrop modal-backdrop--sheet" onClick={onDone}><form className="modal-sheet event-editor-sheet quick-add-form" onClick={event => event.stopPropagation()} onSubmit={submit}>
     <div className="quick-add-heading"><div><p className="section-label">Add an event</p><h2>Put a moment on the plan</h2></div><button type="button" onClick={onDone} aria-label="Close add event"><X size={18}/></button></div>
     <label>Event name<input value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g. Mehendi" required maxLength={200} autoFocus /></label>
     <label>When<input type="datetime-local" value={startsAt} onChange={event => setStartsAt(event.target.value)} /></label>
@@ -132,7 +133,7 @@ function AddEvent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void
     <label className="checkbox-row"><input type="checkbox" checked={isCheckpoint} onChange={event => setIsCheckpoint(event.target.checked)} /> Mark as a key checkpoint</label>
     <p>New event details are marked for the group to review.</p>
     <button className="primary-button" type="submit"><Plus size={17}/> Add event</button>
-  </form>;
+  </form></div>;
 }
 
 function localDateTime(value?: { microsSinceUnixEpoch: bigint }) {
@@ -160,7 +161,7 @@ function EditEvent({ event, onDone }: { event: { id: bigint; title: string; venu
     deleteEvent({ eventId: event.id });
     onDone();
   };
-  return <form className="quick-add-form timeline-editor" onSubmit={save}><div className="quick-add-heading"><div><p className="section-label">Edit event</p><h2>Update the shared calendar</h2></div><button type="button" onClick={onDone} aria-label="Close event editor"><X size={18}/></button></div><label>Event name<input value={title} onChange={input => setTitle(input.target.value)} required maxLength={200} autoFocus /></label><label>When<input type="datetime-local" value={startsAt} onChange={input => setStartsAt(input.target.value)} /></label><label>Venue <span>optional</span><input value={venue} onChange={input => setVenue(input.target.value)} maxLength={300} /></label><label className="checkbox-row"><input type="checkbox" checked={isCheckpoint} onChange={input => setIsCheckpoint(input.target.checked)} /> Mark as a key checkpoint</label><div className="timeline-editor-actions"><button className="primary-button" type="submit">Save changes</button><button className="text-button danger-button" type="button" onClick={remove}>Delete event</button></div></form>;
+  return <div className="modal-backdrop modal-backdrop--sheet" onClick={onDone}><form className="modal-sheet event-editor-sheet quick-add-form timeline-editor" onClick={input => input.stopPropagation()} onSubmit={save}><div className="quick-add-heading"><div><p className="section-label">Edit event</p><h2>Update the shared calendar</h2></div><button type="button" onClick={onDone} aria-label="Close event editor"><X size={18}/></button></div><label>Event name<input value={title} onChange={input => setTitle(input.target.value)} required maxLength={200} autoFocus /></label><label>When<input type="datetime-local" value={startsAt} onChange={input => setStartsAt(input.target.value)} /></label><label>Venue <span>optional</span><input value={venue} onChange={input => setVenue(input.target.value)} maxLength={300} /></label><label className="checkbox-row"><input type="checkbox" checked={isCheckpoint} onChange={input => setIsCheckpoint(input.target.checked)} /> Mark as a key checkpoint</label><div className="timeline-editor-actions"><button className="primary-button" type="submit">Save changes</button><button className="text-button danger-button" type="button" onClick={remove}>Delete event</button></div></form></div>;
 }
 
 function rupeesToPaise(value: string): bigint | undefined {
