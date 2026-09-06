@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Crown, LockKeyhole } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Crown, LockKeyhole } from 'lucide-react';
 import { tables, reducers } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import '../decision-board.css';
@@ -31,13 +31,45 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
   const setDecider = useReducer(reducers.setDecider);
   const [choice, setChoice] = useState<bigint | undefined>();
   const [activeDecisionId, setActiveDecisionId] = useState<bigint | undefined>();
+  const [showAllSettled, setShowAllSettled] = useState(false);
   const myHex = identity?.toHexString();
   const myMembership = members.find(row => row.weddingId === weddingId && row.identity.toHexString() === myHex);
   const iAmAdmin = myMembership?.role === 'couple' || myMembership?.role === 'planner';
   const open = useMemo(() => [...decisions].filter(row => row.weddingId === weddingId && row.lockedOptionId === undefined).sort((a, b) => Number(a.id - b.id)), [decisions, weddingId]);
   const next = open.find(row => row.id === activeDecisionId) ?? open[0];
   const settled = useMemo(() => decisions.filter(row => row.weddingId === weddingId && row.lockedOptionId !== undefined).sort((a, b) => Number(b.id - a.id)), [decisions, weddingId]);
-  const settledPolls = settled.length ? <section className="settled-polls"><p className="section-label">Past polls</p><h2>Settled decisions</h2>{settled.map(decision => { const winner = options.find(option => option.id === decision.lockedOptionId); const decider = decision.deciderIdentity ? participants.find(person => person.identity.equals(decision.deciderIdentity!)) : undefined; return <article key={String(decision.id)}><b>{decision.title}</b><p><strong>{winner?.label ?? 'Final choice'}</strong> · decided by {decider?.name ?? 'Wedding team'}</p></article>; })}</section> : null;
+  const settledPolls = settled.length ? (() => {
+    const visibleSettled = showAllSettled ? settled : settled.slice(0, 5);
+    const hiddenCount = settled.length - visibleSettled.length;
+
+    return <section className="settled-polls" aria-labelledby="settled-decisions-title">
+      <div className="settled-polls__heading">
+        <div>
+          <p className="section-label">Past polls</p>
+          <h2 id="settled-decisions-title">Decision history</h2>
+          <p className="settled-polls__intro">Final choices your family can refer back to.</p>
+        </div>
+        <p className="settled-polls__count"><strong>{settled.length}</strong> settled</p>
+      </div>
+      <div className="settled-polls__list">
+        {visibleSettled.map(decision => {
+          const winner = options.find(option => option.id === decision.lockedOptionId);
+          const decider = decision.deciderIdentity ? participants.find(person => person.identity.equals(decision.deciderIdentity!)) : undefined;
+
+          return <article key={String(decision.id)} className="settled-poll">
+            <div className="settled-poll__status"><Check size={15} aria-hidden="true"/><span>Final choice</span></div>
+            <div className="settled-poll__copy">
+              <p className="settled-poll__question">{decision.title}</p>
+              <p className="settled-poll__outcome"><strong>{winner?.label ?? 'Final choice'}</strong><span>Finalised by {decider?.name ?? 'Wedding team'}</span></p>
+            </div>
+          </article>;
+        })}
+      </div>
+      {settled.length > 5 && <button type="button" className="settled-polls__toggle" onClick={() => setShowAllSettled(value => !value)} aria-expanded={showAllSettled}>
+        {showAllSettled ? <><ChevronUp size={16}/> Show fewer decisions</> : <><ChevronDown size={16}/> Show {hiddenCount} more decision{hiddenCount === 1 ? '' : 's'}</>}
+      </button>}
+    </section>;
+  })() : null;
 
   if (!next) return <div className="decision-page"><div className="empty-state"><Check size={28}/><h1 className="headline">Every decision is settled</h1><p>New choices from your wedding team will appear here.</p></div>{settledPolls}</div>;
 

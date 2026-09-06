@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Timestamp } from 'spacetimedb';
-import { AlertTriangle, BadgeIndianRupee, Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, Clock3, FileText, Image, Landmark, MapPin, MessageCircle, Milestone, Plus, ShieldCheck, Sparkles, Store, Upload, UserPlus, Users, UtensilsCrossed, X } from 'lucide-react';
+import { AlertTriangle, BadgeIndianRupee, Bot, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, FileText, Image, Landmark, MapPin, MessageCircle, Milestone, Plus, ShieldCheck, Sparkles, Store, Upload, UserPlus, Users, UtensilsCrossed, X } from 'lucide-react';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import { parseImport, type ParsedImport } from '../lib/ingest';
@@ -54,6 +54,7 @@ const weddingSections = [
 const monthFormatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
 const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
 const dateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+const eventTimeFormatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 
 function timestampDate(value?: { microsSinceUnixEpoch: bigint }) {
   return value ? new Date(Number(value.microsSinceUnixEpoch / 1000n)) : undefined;
@@ -71,6 +72,10 @@ function startOfMonth(value: Date) {
 
 function addMonths(value: Date, count: number) {
   return new Date(value.getFullYear(), value.getMonth() + count, 1);
+}
+
+function eventTimeLabel(value: Date) {
+  return value.getHours() || value.getMinutes() ? eventTimeFormatter.format(value) : 'Time to confirm';
 }
 
 function CalendarItinerary({ weddingId, wedding, events, canManage }: { weddingId: bigint; wedding?: { dateLabel: string }; events: Array<{ id: bigint; title: string; startsAt?: { microsSinceUnixEpoch: bigint }; venue?: string; state: string; isCheckpoint: boolean }>; canManage: boolean }) {
@@ -111,7 +116,7 @@ function CalendarItinerary({ weddingId, wedding, events, canManage }: { weddingI
       </div>
       <aside className="itinerary-rail"><div className="rail-heading"><Milestone size={18}/><div><p className="section-label">Milestones</p><h3>Key checkpoints</h3></div></div><div className="checkpoint-list">{checkpoints.length ? checkpoints.map((checkpoint, index) => <article key={String(checkpoint.id)}><span className="checkpoint-marker">{index === 0 ? <CheckCircle2 size={15}/> : <i />}</span><div><time>{dateFormatter.format(checkpoint.date)}</time><b>{checkpoint.title}</b><p>{checkpoint.venue ?? 'Time and place to confirm'}</p><small>{checkpoint.state === 'reported' ? 'Needs review' : 'Confirmed event'}</small></div></article>) : <p className="itinerary-empty">Mark an event as a key checkpoint to keep it visible here.</p>}</div></aside>
     </div>
-    <div className="itinerary-events"><div className="rail-heading"><CalendarDays size={18}/><div><p className="section-label">Run of show</p><h3>The day-by-day plan</h3></div></div>{datedEvents.length ? <div className="itinerary-event-list">{datedEvents.sort((a, b) => a.date.getTime() - b.date.getTime()).map(event => <article key={String(event.id)}><time>{dateFormatter.format(event.date)}</time><span className={event.state === 'reported' ? 'draft' : 'confirmed'}>{event.state === 'reported' ? 'Needs review' : 'Confirmed'}</span><div><b>{event.title}{event.isCheckpoint && <em className="checkpoint-label"><Milestone size={13}/> Key checkpoint</em>}</b><p>{event.venue ? <><MapPin size={14}/>{event.venue}</> : <><Clock3 size={14}/>Time and place to confirm</>}</p></div>{canManage && <span className="timeline-event-actions"><button type="button" onClick={() => setEditingEvent(event)}>Edit event</button></span>}</article>)}</div> : <p className="itinerary-empty">Add event details or a calendar export in Connect. Once your group has reviewed them, the dates will form the run of show here.</p>}</div>
+    <div className="itinerary-events"><div className="run-of-show-heading"><div className="rail-heading"><CalendarDays size={18}/><div><p className="section-label">Run of show</p><h3>The day-by-day plan</h3></div></div><p>Times, places, and review status at a glance.</p></div>{datedEvents.length ? <div className="itinerary-event-list">{datedEvents.sort((a, b) => a.date.getTime() - b.date.getTime()).map(event => <article key={String(event.id)}><time dateTime={event.date.toISOString()}><b>{dateFormatter.format(event.date)}</b><span>{eventTimeLabel(event.date)}</span></time><span className={`event-state ${event.state === 'reported' ? 'draft' : 'confirmed'}`}>{event.state === 'reported' ? 'Needs review' : 'Confirmed'}</span><div className="timeline-event-details"><b>{event.title}</b><p>{event.venue ? <><MapPin size={14}/>{event.venue}</> : <><MapPin size={14}/>Venue to confirm</>}</p></div>{event.isCheckpoint && <span className="checkpoint-label"><Milestone size={13}/> Key checkpoint</span>}{canManage && <span className="timeline-event-actions"><button type="button" onClick={() => setEditingEvent(event)} aria-label={`Edit ${event.title}`}>Edit</button></span>}</article>)}</div> : <p className="itinerary-empty">Add event details or a calendar export in Connect. Once your group has reviewed them, the dates will form the run of show here.</p>}</div>
   </section>;
 }
 
@@ -237,6 +242,18 @@ function BudgetWorkspace({ weddingId }: { weddingId: bigint }) {
     categories.set(category, current);
     return categories;
   }, new Map<string, { planned: number; paid: number; lines: number }>())).sort(([, left], [, right]) => right.planned - left.planned);
+  const lineGroups = Array.from(lines.reduce((groups, line) => {
+    const category = line.category.trim() || 'Other';
+    const group = groups.get(category) ?? [];
+    group.push(line);
+    groups.set(category, group);
+    return groups;
+  }, new Map<string, typeof lines>())).sort(([, left], [, right]) => right.reduce((sum, line) => sum + Number(line.amountPaise), 0) - left.reduce((sum, line) => sum + Number(line.amountPaise), 0));
+  const vendorStages = ['shortlisted', 'selected', 'booked', 'declined'].map(state => ({
+    state,
+    label: state === 'shortlisted' ? 'To choose' : state === 'selected' ? 'Selected' : state === 'booked' ? 'Booked' : 'Not proceeding',
+    vendors: weddingVendors.filter(vendor => vendor.bookingState === state),
+  })).filter(stage => stage.vendors.length);
   const submitBudget = (event: FormEvent) => {
     event.preventDefault();
     const amountPaise = rupeesToPaise(budgetAmount);
@@ -289,11 +306,25 @@ function BudgetWorkspace({ weddingId }: { weddingId: bigint }) {
       <p>Adding a line records it for the group. It does not pay, reserve, or contact a vendor.</p>
       <div className="budget-line-sheet-actions"><button type="button" className="text-button" onClick={() => setShowExpenseForm(false)}>Cancel</button><button className="primary-button" type="submit"><BadgeIndianRupee size={17}/> Add budget line</button></div>
     </form></div>}
-    <div className="budget-lines">{lines.length ? lines.map(line => { const linkedVendor = line.vendorId === undefined ? undefined : weddingVendors.find(item => item.id === line.vendorId); const status = line.state === 'reported' ? 'Needs review' : line.paid ? 'Paid' : 'Planned'; return <article className={`budget-line ${line.state === 'reported' ? 'reported' : ''}`} key={String(line.id)}><div className="budget-line-main"><b>{line.label}</b><p>{line.category}{linkedVendor ? ` · ${linkedVendor.name}` : ''}</p></div><div className="budget-line-status"><span className={line.state === 'reported' ? 'budget-status review' : line.paid ? 'budget-status paid' : 'budget-status planned'}>{status}</span></div><div className="budget-line-value"><b>{fmt.format(Number(line.amountPaise) / 100)}</b>{line.state === 'reported' && canManage && <span><button type="button" onClick={() => confirmExpense({ expenseId: line.id, accept: true })}>Confirm</button><button type="button" className="text-button" onClick={() => confirmExpense({ expenseId: line.id, accept: false })}>Dismiss</button></span>}</div></article>; }) : <div className="empty-budget"><CircleDollarSign size={22}/><b>No budget lines yet</b><p>Add the first quote or payment yourself, or import vendor quotes from Connect for review.</p></div>}</div>
+    <div className="budget-chapters">{lineGroups.length ? lineGroups.map(([category, categoryLines], index) => {
+      const categoryAmount = categoryLines.reduce((sum, line) => sum + Number(line.amountPaise) / 100, 0);
+      const reviewCount = categoryLines.filter(line => line.state === 'reported').length;
+      return <details className="budget-chapter" key={category} open={index === 0 || reviewCount > 0}>
+        <summary>
+          <span className="budget-chapter-mark"><BadgeIndianRupee size={17}/></span>
+          <span className="budget-chapter-title"><b>{category}</b><small>{categoryLines.length} {categoryLines.length === 1 ? 'item' : 'items'}{reviewCount ? ` · ${reviewCount} to review` : ''}</small></span>
+          <span className="budget-chapter-total">{fmt.format(categoryAmount)}</span><ChevronDown className="chapter-chevron" size={19}/>
+        </summary>
+        <div className="budget-lines">{categoryLines.map(line => { const linkedVendor = line.vendorId === undefined ? undefined : weddingVendors.find(item => item.id === line.vendorId); const status = line.state === 'reported' ? 'Needs review' : line.paid ? 'Paid' : 'Planned'; return <article className={`budget-line ${line.state === 'reported' ? 'reported' : ''}`} key={String(line.id)}><div className="budget-line-main"><b>{line.label}</b><p>{linkedVendor ? linkedVendor.name : 'No vendor linked'}</p></div><div className="budget-line-status"><span className={line.state === 'reported' ? 'budget-status review' : line.paid ? 'budget-status paid' : 'budget-status planned'}>{status}</span></div><div className="budget-line-value"><b>{fmt.format(Number(line.amountPaise) / 100)}</b>{line.state === 'reported' && canManage && <span><button type="button" onClick={() => confirmExpense({ expenseId: line.id, accept: true })}>Confirm</button><button type="button" className="text-button" onClick={() => confirmExpense({ expenseId: line.id, accept: false })}>Dismiss</button></span>}</div></article>; })}</div>
+      </details>;
+    }) : <div className="empty-budget"><CircleDollarSign size={22}/><b>No budget lines yet</b><p>Add the first quote or payment yourself, or import vendor quotes from Connect for review.</p></div>}</div>
     <div className="budget-section-heading vendor-heading"><div><p className="section-label">Vendors</p><h3>Keep selection and consent clear</h3></div>{canManage && <div className="vendor-heading-actions">{weddingVendors.some(item => item.bookingState === 'shortlisted') && <button type="button" className="outline-action" onClick={() => setShowVendorReview(true)}>Review choices</button>}<button type="button" className="outline-action" onClick={() => setShowVendorForm(true)}><Plus size={16}/> Add vendor</button></div>}</div>
     {showVendorReview && <VendorSwipeDeck vendors={weddingVendors} onUpdate={(vendorId, bookingState) => setVendorBookingState({ vendorId, bookingState })} onClose={() => setShowVendorReview(false)} />}
     {showVendorForm && <div className="modal-backdrop modal-backdrop--sheet" onClick={() => setShowVendorForm(false)}><form className="modal-sheet vendor-form-sheet" role="dialog" aria-modal="true" aria-labelledby="add-vendor-title" onClick={event => event.stopPropagation()} onSubmit={submitVendor}><div className="quick-add-heading"><div><p className="section-label">Vendor</p><h2 id="add-vendor-title">Add a vendor</h2></div><button type="button" onClick={() => setShowVendorForm(false)} aria-label="Close add vendor"><X size={18}/></button></div><label>Vendor name<input autoFocus value={vendor.name} onChange={event => setVendor(value => ({ ...value, name: event.target.value }))} placeholder="e.g. Nila Blooms" required maxLength={160} /></label><label>Category<input value={vendor.category} onChange={event => setVendor(value => ({ ...value, category: event.target.value }))} placeholder="e.g. Floral decor" required maxLength={100} /></label><label>Notes <span>optional</span><textarea value={vendor.note} onChange={event => setVendor(value => ({ ...value, note: event.target.value }))} placeholder="What should the family remember about this vendor?" maxLength={1000} /></label><p>Vendor contact details and outreach stay outside this shared plan. Add only the planning context the group needs.</p><div className="budget-line-sheet-actions"><button type="button" className="text-button" onClick={() => setShowVendorForm(false)}>Cancel</button><button className="primary-button" type="submit"><Store size={17}/> Add vendor</button></div></form></div>}
-    <div className="vendor-list">{weddingVendors.length ? weddingVendors.map(item => { const consent = consents.find(row => row.vendorId === item.id); return <article className="vendor-card" key={String(item.id)}><div className="vendor-card-main"><span className="vendor-icon"><Store size={18}/></span><div><b>{item.name}</b><p>{item.category}{item.note ? ` · ${item.note}` : ''}</p></div></div><div className="vendor-card-actions"><label>Status<select value={item.bookingState} disabled={!canManage} onChange={event => setVendorBookingState({ vendorId: item.id, bookingState: event.target.value })}><option value="shortlisted">Shortlisted</option><option value="selected">Selected</option><option value="booked">Booked</option><option value="declined">Not proceeding</option></select></label>{canManage && <button type="button" className={consent?.consented ? 'consent-button allowed' : 'consent-button'} onClick={() => setVendorConsent({ vendorId: item.id, consented: !consent?.consented })}><ShieldCheck size={15}/>{consent?.consented ? 'Draft follow-ups allowed' : 'Allow draft follow-ups'}</button>}<small>{consent?.consented ? 'A person has approved draft outreach. Nothing is sent automatically.' : 'No vendor outreach is permitted.'}</small></div></article>; }) : <div className="empty-budget"><Store size={22}/><b>No vendors yet</b><p>Add the vendors you are considering, then link their quotes and payments above.</p></div>}</div>
+    <div className="vendor-stages">{vendorStages.length ? vendorStages.map((stage, index) => <details className={`vendor-stage vendor-stage--${stage.state}`} key={stage.state} open={stage.state === 'shortlisted' || (index === 0 && stage.state !== 'declined')}>
+      <summary><span className="vendor-stage-dot" /><span><b>{stage.label}</b><small>{stage.vendors.length} {stage.vendors.length === 1 ? 'vendor' : 'vendors'}</small></span><ChevronDown className="chapter-chevron" size={19}/></summary>
+      <div className="vendor-list">{stage.vendors.map(item => { const consent = consents.find(row => row.vendorId === item.id); return <article className="vendor-card" key={String(item.id)}><div className="vendor-card-main"><span className="vendor-icon"><Store size={18}/></span><div><b>{item.name}</b><p>{item.category}{item.note ? ` · ${item.note}` : ''}</p></div></div><div className="vendor-card-actions"><label>Status<select value={item.bookingState} disabled={!canManage} onChange={event => setVendorBookingState({ vendorId: item.id, bookingState: event.target.value })}><option value="shortlisted">Shortlisted</option><option value="selected">Selected</option><option value="booked">Booked</option><option value="declined">Not proceeding</option></select></label>{canManage && <button type="button" className={consent?.consented ? 'consent-button allowed' : 'consent-button'} onClick={() => setVendorConsent({ vendorId: item.id, consented: !consent?.consented })}><ShieldCheck size={15}/>{consent?.consented ? 'Draft follow-ups allowed' : 'Allow draft follow-ups'}</button>}<small>{consent?.consented ? 'A person has approved draft outreach. Nothing is sent automatically.' : 'No vendor outreach is permitted.'}</small></div></article>; })}</div>
+    </details>) : <div className="empty-budget"><Store size={22}/><b>No vendors yet</b><p>Add the vendors you are considering, then link their quotes and payments above.</p></div>}</div>
   </section>;
 }
 
