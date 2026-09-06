@@ -5,6 +5,12 @@ import SignInModal from './components/SignInModal';
 import AuthGate from './components/AuthGate';
 import AppShell from './components/AppShell';
 import WeddingPortfolio from './components/WeddingPortfolio';
+// TEMP-SCREENSHOT: bypass OIDC to capture README screenshots
+import { SpacetimeDBProvider } from 'spacetimedb/react';
+import { DbConnection } from './module_bindings';
+const TEMP_SCREENSHOT = true;
+const TEMP_HOST = import.meta.env.VITE_SPACETIMEDB_HOST ?? 'ws://localhost:3000';
+const TEMP_DB = import.meta.env.VITE_SPACETIMEDB_DB_NAME ?? 'react-ts';
 
 function WeddingSurface() {
   const [activeWeddingId, setActiveWeddingId] = useState<bigint | null>(null);
@@ -51,6 +57,23 @@ function App() {
       setShowSignIn(true);
     }
   };
+
+  if (TEMP_SCREENSHOT) {
+    return (
+      <>
+        {view === 'hero' ? (
+          <Hero onGetStarted={handleGetStarted} />
+        ) : (
+          <SpacetimeDBProvider
+            connectionBuilder={DbConnection.builder().withUri(TEMP_HOST).withDatabaseName(TEMP_DB)}
+          >
+            <WeddingSurface />
+          </SpacetimeDBProvider>
+        )}
+        {showSignIn && <SignInModal onClose={() => setShowSignIn(false)} />}
+      </>
+    );
+  }
 
   return (
     <>

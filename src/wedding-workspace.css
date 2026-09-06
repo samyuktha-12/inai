@@ -19,6 +19,36 @@
 @media(max-width:900px){.wedding-workspace-header{grid-template-columns:1fr;gap:18px;margin-bottom:34px!important}.wedding-workspace-title{display:grid;gap:17px}.wedding-workspace-header .headline,.wedding-workspace-header .wedding-workspace-title>p{grid-column:auto}.wedding-workspace-header .wedding-workspace-title>p{max-width:620px}.wedding-section-nav button{min-height:58px}.mood-board-heading{grid-template-columns:1fr;gap:18px;margin-top:42px!important}.mood-review-badge{justify-self:start}.mood-card--0{grid-column:span 7}.mood-card--1,.mood-card--2{grid-column:span 5}.mood-card--3{grid-column:span 12}}
 @media(max-width:620px){.wedding-workspace-header .headline{font-size:48px!important}.wedding-section-nav{margin-inline:-20px}.wedding-section-nav button{min-width:112px;padding-inline:14px!important}.wedding-section-nav button small{display:none!important}.mood-grid{display:grid!important;grid-template-columns:1fr;gap:12px!important}.mood-card,.mood-card--0,.mood-card--1,.mood-card--2,.mood-card--3{grid-column:auto;grid-row:auto;grid-template-columns:1fr}.mood-card--3{grid-template-columns:1fr;grid-template-rows:auto}.mood-card--0 .mood-swatch{min-height:360px!important}.mood-card--0 .mood-card-copy{min-height:165px}.mood-card--3 .mood-swatch{min-height:220px!important}.mood-card-copy,.mood-card>div:last-child{padding:19px!important}.mood-board-heading h2{font-size:44px!important}}
 
+/* A seven-item horizontal rail hides most planning sections on a phone. Turn it
+   into a compact, fully visible menu at this breakpoint so every destination is
+   discoverable without sideways scrolling. */
+@media(max-width:620px){
+  .wedding-workspace-header .headline{font-size:clamp(38px,12vw,46px)!important}
+  .wedding-section-nav{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));margin-inline:0!important;overflow:visible!important}
+  .wedding-section-nav button{min-width:0!important;min-height:52px;padding:0 12px!important;border-left:0!important;border-right:1px solid var(--rule)!important;border-bottom:1px solid var(--rule)!important}
+  .wedding-section-nav button:nth-child(even){border-right:0!important}
+  .wedding-section-nav button:last-child{grid-column:1 / -1}
+  .wedding-section-nav button span{text-align:center!important}
+  .calendar-day{min-height:58px;padding:4px}
+  .calendar-weekdays span{padding:7px 0;font-size:11px}
+  .budget-stats--expanded{grid-template-columns:1fr}
+  .budget-stats--expanded>div{border-right:0!important;border-bottom:1px solid var(--rule)}
+  .budget-stats--expanded>div:last-child{border-bottom:0}
+}
+
+/* Ideas are reference material, not a hero campaign. The previous asymmetric
+   mosaic let a single image dominate the screen and could separate a card's
+   copy from its image. Use a measured editorial grid so every idea stays
+   complete and equally easy to compare. */
+.mood-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:auto!important;gap:20px!important}
+.mood-card,.mood-card--0,.mood-card--1,.mood-card--2,.mood-card--3{display:grid!important;grid-column:auto!important;grid-row:auto!important;grid-template-columns:1fr!important;grid-template-rows:230px minmax(0,1fr)!important;min-height:0!important;overflow:hidden;border:1px solid var(--rule)!important;background:var(--paper-raised)!important}
+.mood-swatch,.mood-card--0 .mood-swatch,.mood-card--3 .mood-swatch{grid-row:1!important;width:100%!important;height:230px!important;min-height:0!important;object-fit:cover!important}
+.mood-card-copy,.mood-card>div:last-child,.mood-card--0 .mood-card-copy{position:static!important;display:grid!important;align-content:start!important;gap:9px!important;min-height:0!important;padding:20px 22px 22px!important;background:transparent!important}
+.mood-card h3,.mood-card--0 .mood-card-copy h3{color:var(--ink)!important;font-size:clamp(25px,2vw,32px)!important}
+.mood-card small,.mood-card p,.mood-card a,.mood-card--0 .mood-card-copy small,.mood-card--0 .mood-card-copy p,.mood-card--0 .mood-card-copy a{color:var(--ink-soft)!important}
+.mood-card a,.mood-card--0 .mood-card-copy a{color:var(--accent)!important}
+@media(max-width:620px){.mood-grid{grid-template-columns:1fr!important;gap:14px!important}.mood-card,.mood-card--0,.mood-card--1,.mood-card--2,.mood-card--3{grid-template-rows:210px minmax(0,1fr)!important}.mood-swatch,.mood-card--0 .mood-swatch,.mood-card--3 .mood-swatch{height:210px!important}.mood-card-copy,.mood-card>div:last-child,.mood-card--0 .mood-card-copy{padding:18px!important}}
+
 .assistant-section{margin-top:50px;padding-top:36px}.assistant-intro .outline-action{margin-top:0!important}.assistant-list,.source-list{row-gap:0}.source-card,.assistant-card{align-items:start!important;min-height:0!important}.source-card>div,.assistant-card>div{display:grid;gap:5px}.source-card b,.assistant-card b,.source-card p,.assistant-card p{display:block;margin:0!important}.source-card p,.assistant-card p{line-height:1.45}.source-card small{margin-top:5px!important}.assistant-card .agent-actions{display:flex;gap:8px}.assistant-card .assistant-toggle{margin:0}.assistant-card.customising{grid-template-columns:32px minmax(0,1fr) auto}.agent-customisation{grid-column:1 / -1;display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.7fr);align-items:end;gap:18px;margin:18px 0 0;padding:20px 0 0;border-top:1px solid var(--rule)}.agent-customisation label{display:grid;gap:8px;color:var(--ink);font-size:16px;font-weight:700}.agent-customisation textarea{width:100%;min-height:112px;padding:12px;border:1px solid var(--rule-strong);border-radius:8px;background:var(--paper-raised);color:var(--ink);font:inherit;line-height:1.45;resize:vertical}.agent-customisation p{margin:0!important;color:var(--ink-soft)!important;font-size:14px;line-height:1.5}.agent-customisation .primary-button{justify-self:start;grid-column:2;min-width:176px}@media(max-width:700px){.assistant-card.customising{grid-template-columns:28px minmax(0,1fr)}.assistant-card.customising .agent-actions{grid-column:1 / -1}.agent-customisation{grid-template-columns:1fr}.agent-customisation .primary-button{grid-column:auto}}.connect-intro{margin-bottom:28px}.connect-intro>p:last-child{max-width:65ch;line-height:1.55}
 
 /* Budget entry belongs in a focused sheet, not in the middle of the ledger. */
