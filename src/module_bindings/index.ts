@@ -51,6 +51,7 @@ import CreateVendorReducer from "./create_vendor_reducer";
 import CreateWeddingReducer from "./create_wedding_reducer";
 import CreateWeddingInvitationReducer from "./create_wedding_invitation_reducer";
 import DeclineWeddingInvitationReducer from "./decline_wedding_invitation_reducer";
+import DeleteEventReducer from "./delete_event_reducer";
 import LinkPhoneReducer from "./link_phone_reducer";
 import LockDecisionReducer from "./lock_decision_reducer";
 import RecordImportedExpenseReducer from "./record_imported_expense_reducer";
@@ -72,6 +73,7 @@ import SetWebhookSecretReducer from "./set_webhook_secret_reducer";
 import SetWeddingAgentReducer from "./set_wedding_agent_reducer";
 import SetWeddingAgentInstructionsReducer from "./set_wedding_agent_instructions_reducer";
 import ToggleTaskReducer from "./toggle_task_reducer";
+import UpdateEventReducer from "./update_event_reducer";
 import UpdateMyProfileReducer from "./update_my_profile_reducer";
 
 // Import all procedure arg schemas
@@ -417,6 +419,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_wedding", CreateWeddingReducer),
   __reducerSchema("create_wedding_invitation", CreateWeddingInvitationReducer),
   __reducerSchema("decline_wedding_invitation", DeclineWeddingInvitationReducer),
+  __reducerSchema("delete_event", DeleteEventReducer),
   __reducerSchema("link_phone", LinkPhoneReducer),
   __reducerSchema("lock_decision", LockDecisionReducer),
   __reducerSchema("record_imported_expense", RecordImportedExpenseReducer),
@@ -438,6 +441,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_wedding_agent", SetWeddingAgentReducer),
   __reducerSchema("set_wedding_agent_instructions", SetWeddingAgentInstructionsReducer),
   __reducerSchema("toggle_task", ToggleTaskReducer),
+  __reducerSchema("update_event", UpdateEventReducer),
   __reducerSchema("update_my_profile", UpdateMyProfileReducer),
 );
 

@@ -10,16 +10,10 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  id: __t.u64().primaryKey(),
-  weddingId: __t.u64().name("wedding_id"),
+export default {
+  eventId: __t.u64(),
   title: __t.string(),
-  startsAt: __t.option(__t.timestamp()).name("starts_at"),
   venue: __t.option(__t.string()),
-  state: __t.string(),
-  source: __t.string(),
-  updatedBy: __t.identity().name("updated_by"),
-  confidence: __t.f32(),
-  updatedAt: __t.timestamp().name("updated_at"),
-  isCheckpoint: __t.bool().name("is_checkpoint"),
-});
+  startsAt: __t.option(__t.timestamp()),
+  isCheckpoint: __t.bool(),
+};

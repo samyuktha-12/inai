@@ -130,6 +130,8 @@ const event = table(
     updatedBy: t.identity(),
     confidence: t.f32().default(1),
     updatedAt: t.timestamp(),
+    // A human-marked milestone in the shared run of show.
+    isCheckpoint: t.bool().default(false),
   }
 );
 
@@ -807,7 +809,7 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
   const has = (table: Iterable<{ weddingId: bigint; title?: string; label?: string }>, value: string) => [...table].some(row => row.weddingId === weddingId && (row.title === value || row.label === value));
   const addEvent = (title: string, venue: string) => {
     if (has(ctx.db.event.iter(), title)) return;
-    ctx.db.event.insert({ id: 0n, weddingId, title, startsAt: ctx.timestamp, venue, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    ctx.db.event.insert({ id: 0n, weddingId, title, startsAt: ctx.timestamp, venue, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp, isCheckpoint: false });
   };
   addEvent('Mehendi evening', 'The Leela Palace lawn');
   addEvent('Sangeet night', 'The Leela Palace ballroom');
@@ -949,8 +951,8 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
 });
 
 export const createEvent = spacetimedb.reducer(
-  { weddingId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()), source: t.string(), confidence: t.f32() },
-  (ctx, { weddingId, title, venue, startsAt, source, confidence }) => {
+  { weddingId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()), source: t.string(), confidence: t.f32(), isCheckpoint: t.bool() },
+  (ctx, { weddingId, title, venue, startsAt, source, confidence, isCheckpoint }) => {
     if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add an event');
     const eventTitle = title.trim();
     if (!eventTitle || eventTitle.length > 200) throw new SenderError('event name must be between 1 and 200 characters');
@@ -969,7 +971,30 @@ export const createEvent = spacetimedb.reducer(
       updatedBy: ctx.sender,
       confidence,
       updatedAt: ctx.timestamp,
+      isCheckpoint,
     });
+  }
+);
+
+export const updateEvent = spacetimedb.reducer(
+  { eventId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()), isCheckpoint: t.bool() },
+  (ctx, { eventId, title, venue, startsAt, isCheckpoint }) => {
+    const existing = ctx.db.event.id.find(eventId);
+    if (!existing || !canManageWedding(ctx, existing.weddingId)) throw new SenderError('only the couple or event creator can update an event');
+    const eventTitle = title.trim();
+    if (!eventTitle || eventTitle.length > 200) throw new SenderError('event name must be between 1 and 200 characters');
+    const eventVenue = venue?.trim() || undefined;
+    if (eventVenue && eventVenue.length > 300) throw new SenderError('venue must be 300 characters or fewer');
+    ctx.db.event.id.update({ ...existing, title: eventTitle, venue: eventVenue, startsAt, isCheckpoint, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+  }
+);
+
+export const deleteEvent = spacetimedb.reducer(
+  { eventId: t.u64() },
+  (ctx, { eventId }) => {
+    const existing = ctx.db.event.id.find(eventId);
+    if (!existing || !canManageWedding(ctx, existing.weddingId)) throw new SenderError('only the couple or event creator can delete an event');
+    ctx.db.event.id.delete(eventId);
   }
 );
 
@@ -991,6 +1016,7 @@ export const applyEventTemplate = spacetimedb.reducer(
       updatedBy: ctx.sender,
       confidence: 1,
       updatedAt: ctx.timestamp,
+      isCheckpoint: false,
     });
     for (const label of selected.checklist) {
       if ([...ctx.db.event_checklist_item.by_event.filter(event.id)].some(item => item.label === label)) continue;

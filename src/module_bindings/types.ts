@@ -84,6 +84,7 @@ export const Event = __t.object("Event", {
   updatedBy: __t.identity(),
   confidence: __t.f32(),
   updatedAt: __t.timestamp(),
+  isCheckpoint: __t.bool(),
 });
 export type Event = __Infer<typeof Event>;
 

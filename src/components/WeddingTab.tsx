@@ -8,6 +8,7 @@ import bridalStyling from '../../dataset/priya-rahul/02-pinterest-mood-boards/im
 import ceremonyMandap from '../../dataset/priya-rahul/02-pinterest-mood-boards/images/ceremony-mandap.png';
 import dinnerCelebration from '../../dataset/priya-rahul/02-pinterest-mood-boards/images/dinner-celebration.png';
 import '../wedding-workspace.css';
+import '../timeline-calendar.css';
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -69,30 +70,30 @@ function addMonths(value: Date, count: number) {
   return new Date(value.getFullYear(), value.getMonth() + count, 1);
 }
 
-function CalendarItinerary({ wedding, events }: { wedding?: { dateLabel: string }; events: Array<{ id: bigint; title: string; startsAt?: { microsSinceUnixEpoch: bigint }; venue?: string; state: string }> }) {
+function CalendarItinerary({ weddingId, wedding, events, canManage }: { weddingId: bigint; wedding?: { dateLabel: string }; events: Array<{ id: bigint; title: string; startsAt?: { microsSinceUnixEpoch: bigint }; venue?: string; state: string; isCheckpoint: boolean }>; canManage: boolean }) {
   const anchor = weddingDate(wedding?.dateLabel) ?? new Date();
   const [month, setMonth] = useState(() => startOfMonth(anchor));
+  const [addingEvent, setAddingEvent] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<typeof events[number] | null>(null);
   const datedEvents = events.flatMap(event => {
     const date = timestampDate(event.startsAt);
     return date ? [{ ...event, date }] : [];
   });
   const days = Array.from({ length: 42 }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - month.getDay() + 1));
-  const checkpoints = [
-    { title: 'Dates and venues settled', offset: -180, copy: 'Keep the main ceremony and venue details together.' },
-    { title: 'Guest list checkpoint', offset: -120, copy: 'Review the first list before invitations are drafted.' },
-    { title: 'Vendor details checked', offset: -60, copy: 'Confirm who is doing what, and keep contact details handy.' },
-    { title: 'Wedding week plan', offset: -7, copy: 'Make the final run-sheet easy for every family member to follow.' },
-  ].map(checkpoint => ({ ...checkpoint, date: new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + checkpoint.offset) }));
+  const checkpoints = datedEvents.filter(event => event.isCheckpoint).sort((left, right) => left.date.getTime() - right.date.getTime());
+  const nextCheckpoint = checkpoints.find(event => event.date >= new Date());
   const weddingDay = datedEvents.find(event => event.date.toDateString() === anchor.toDateString());
 
   return <section className="itinerary" aria-label="Wedding itinerary calendar">
     <div className="itinerary-intro">
-      <div><p className="section-label">Shared calendar</p><h2>Build the days together</h2><p>Events from your group appear here. Planning checkpoints are a guide until your family confirms the details.</p></div>
-      <div className="itinerary-legend"><span><i className="confirmed-dot" /> Confirmed</span><span><i className="draft-dot" /> Needs review</span></div>
+      <div><p className="section-label">Shared calendar</p><h2>Build the days together</h2><p>Events from your group appear here. Mark any event as a key checkpoint when the family wants it highlighted.</p></div>
+      <div className="itinerary-legend"><span><i className="confirmed-dot" /> Confirmed</span><span><i className="draft-dot" /> Needs review</span>{canManage && <button type="button" className="outline-action" onClick={() => setAddingEvent(true)}><Plus size={16}/> Add event</button>}</div>
     </div>
+    {addingEvent && <AddEvent weddingId={weddingId} onDone={() => setAddingEvent(false)} />}
+    {editingEvent && <EditEvent event={editingEvent} onDone={() => setEditingEvent(null)} />}
     <div className="itinerary-summary">
       <div><span>On the calendar</span><b>{datedEvents.length}</b><small>{datedEvents.length === 1 ? 'event' : 'events'} with a date</small></div>
-      <div><span>Next checkpoint</span><b>{checkpoints.find(item => item.date >= new Date()) ? dateFormatter.format(checkpoints.find(item => item.date >= new Date())!.date) : '—'}</b><small>Keep the plan moving</small></div>
+      <div><span>Next checkpoint</span><b>{nextCheckpoint ? dateFormatter.format(nextCheckpoint.date) : '—'}</b><small>{nextCheckpoint?.title ?? 'Mark an event when needed'}</small></div>
       <div><span>Wedding day</span><b>{wedding ? dateFormatter.format(anchor) : '—'}</b><small>{weddingDay?.title ?? 'Date to confirm'}</small></div>
     </div>
     <div className="calendar-layout">
@@ -101,14 +102,13 @@ function CalendarItinerary({ wedding, events }: { wedding?: { dateLabel: string 
         <div className="calendar-weekdays">{Array.from({ length: 7 }, (_, index) => <span key={index}>{dayFormatter.format(new Date(2023, 0, index + 1)).slice(0, 1)}</span>)}</div>
         <div className="calendar-grid">{days.map(day => {
           const entries = datedEvents.filter(event => event.date.toDateString() === day.toDateString());
-          const guide = checkpoints.find(checkpoint => checkpoint.date.toDateString() === day.toDateString());
           const isWeddingDay = day.toDateString() === anchor.toDateString();
-          return <div className={`calendar-day ${day.getMonth() !== month.getMonth() ? 'outside' : ''} ${isWeddingDay ? 'wedding-day' : ''}`} key={day.toISOString()}><time>{day.getDate()}</time>{isWeddingDay && <span className="calendar-wedding-mark" aria-label="Wedding day" />}{entries.slice(0, 2).map(event => <span className={`calendar-entry ${event.state === 'reported' ? 'draft' : ''}`} key={String(event.id)} title={event.title}>{event.title}</span>)}{guide && <span className="calendar-guide" title={guide.title}><Milestone size={12}/></span>}</div>;
+          return <div className={`calendar-day ${day.getMonth() !== month.getMonth() ? 'outside' : ''} ${isWeddingDay ? 'wedding-day' : ''}`} key={day.toISOString()}><time>{day.getDate()}</time>{isWeddingDay && <span className="calendar-wedding-mark" aria-label="Wedding day" />}{entries.slice(0, 2).map(event => <span className={`calendar-entry ${event.state === 'reported' ? 'draft' : ''} ${event.isCheckpoint ? 'checkpoint' : ''}`} key={String(event.id)} title={event.title}>{event.isCheckpoint && <Milestone size={11}/>} {event.title}</span>)}</div>;
         })}</div>
       </div>
-      <aside className="itinerary-rail"><div className="rail-heading"><Milestone size={18}/><div><p className="section-label">Milestones</p><h3>Plan checkpoints</h3></div></div><div className="checkpoint-list">{checkpoints.map((checkpoint, index) => <article key={checkpoint.title}><span className="checkpoint-marker">{index < 1 ? <CheckCircle2 size={15}/> : <i />}</span><div><time>{dateFormatter.format(checkpoint.date)}</time><b>{checkpoint.title}</b><p>{checkpoint.copy}</p><small>Planning guide · review with the group</small></div></article>)}</div></aside>
+      <aside className="itinerary-rail"><div className="rail-heading"><Milestone size={18}/><div><p className="section-label">Milestones</p><h3>Key checkpoints</h3></div></div><div className="checkpoint-list">{checkpoints.length ? checkpoints.map((checkpoint, index) => <article key={String(checkpoint.id)}><span className="checkpoint-marker">{index === 0 ? <CheckCircle2 size={15}/> : <i />}</span><div><time>{dateFormatter.format(checkpoint.date)}</time><b>{checkpoint.title}</b><p>{checkpoint.venue ?? 'Time and place to confirm'}</p><small>{checkpoint.state === 'reported' ? 'Needs review' : 'Confirmed event'}</small></div></article>) : <p className="itinerary-empty">Mark an event as a key checkpoint to keep it visible here.</p>}</div></aside>
     </div>
-    <div className="itinerary-events"><div className="rail-heading"><CalendarDays size={18}/><div><p className="section-label">Run of show</p><h3>The day-by-day plan</h3></div></div>{datedEvents.length ? <div className="itinerary-event-list">{datedEvents.sort((a, b) => a.date.getTime() - b.date.getTime()).map(event => <article key={String(event.id)}><time>{dateFormatter.format(event.date)}</time><span className={event.state === 'reported' ? 'draft' : 'confirmed'}>{event.state === 'reported' ? 'Needs review' : 'Confirmed'}</span><div><b>{event.title}</b><p>{event.venue ? <><MapPin size={14}/>{event.venue}</> : <><Clock3 size={14}/>Time and place to confirm</>}</p></div></article>)}</div> : <p className="itinerary-empty">Add event details or a calendar export in Connect. Once your group has reviewed them, the dates will form the run of show here.</p>}</div>
+    <div className="itinerary-events"><div className="rail-heading"><CalendarDays size={18}/><div><p className="section-label">Run of show</p><h3>The day-by-day plan</h3></div></div>{datedEvents.length ? <div className="itinerary-event-list">{datedEvents.sort((a, b) => a.date.getTime() - b.date.getTime()).map(event => <article key={String(event.id)}><time>{dateFormatter.format(event.date)}</time><span className={event.state === 'reported' ? 'draft' : 'confirmed'}>{event.state === 'reported' ? 'Needs review' : 'Confirmed'}</span><div><b>{event.title}{event.isCheckpoint && <em className="checkpoint-label"><Milestone size={13}/> Key checkpoint</em>}</b><p>{event.venue ? <><MapPin size={14}/>{event.venue}</> : <><Clock3 size={14}/>Time and place to confirm</>}</p></div>{canManage && <span className="timeline-event-actions"><button type="button" onClick={() => setEditingEvent(event)}>Edit event</button></span>}</article>)}</div> : <p className="itinerary-empty">Add event details or a calendar export in Connect. Once your group has reviewed them, the dates will form the run of show here.</p>}</div>
   </section>;
 }
 
@@ -117,10 +117,11 @@ function AddEvent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void
   const [title, setTitle] = useState('');
   const [venue, setVenue] = useState('');
   const [startsAt, setStartsAt] = useState('');
+  const [isCheckpoint, setIsCheckpoint] = useState(false);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim()) return;
-    createEvent({ weddingId, title: title.trim(), venue: venue.trim() || undefined, startsAt: startsAt ? Timestamp.fromDate(new Date(startsAt)) : undefined, source: 'manual', confidence: 1 });
+    createEvent({ weddingId, title: title.trim(), venue: venue.trim() || undefined, startsAt: startsAt ? Timestamp.fromDate(new Date(startsAt)) : undefined, source: 'manual', confidence: 1, isCheckpoint });
     onDone();
   };
   return <form className="quick-add-form" onSubmit={submit}>
@@ -128,9 +129,38 @@ function AddEvent({ weddingId, onDone }: { weddingId: bigint; onDone: () => void
     <label>Event name<input value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g. Mehendi" required maxLength={200} autoFocus /></label>
     <label>When<input type="datetime-local" value={startsAt} onChange={event => setStartsAt(event.target.value)} /></label>
     <label>Venue <span>optional</span><input value={venue} onChange={event => setVenue(event.target.value)} placeholder="e.g. The Leela Palace" maxLength={300} /></label>
+    <label className="checkbox-row"><input type="checkbox" checked={isCheckpoint} onChange={event => setIsCheckpoint(event.target.checked)} /> Mark as a key checkpoint</label>
     <p>New event details are marked for the group to review.</p>
     <button className="primary-button" type="submit"><Plus size={17}/> Add event</button>
   </form>;
+}
+
+function localDateTime(value?: { microsSinceUnixEpoch: bigint }) {
+  const date = timestampDate(value);
+  if (!date) return '';
+  const pad = (number: number) => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function EditEvent({ event, onDone }: { event: { id: bigint; title: string; venue?: string; startsAt?: { microsSinceUnixEpoch: bigint }; isCheckpoint: boolean }; onDone: () => void }) {
+  const updateEvent = useReducer(reducers.updateEvent);
+  const deleteEvent = useReducer(reducers.deleteEvent);
+  const [title, setTitle] = useState(event.title);
+  const [venue, setVenue] = useState(event.venue ?? '');
+  const [startsAt, setStartsAt] = useState(localDateTime(event.startsAt));
+  const [isCheckpoint, setIsCheckpoint] = useState(event.isCheckpoint);
+  const save = (form: FormEvent) => {
+    form.preventDefault();
+    if (!title.trim()) return;
+    updateEvent({ eventId: event.id, title: title.trim(), venue: venue.trim() || undefined, startsAt: startsAt ? Timestamp.fromDate(new Date(startsAt)) : undefined, isCheckpoint });
+    onDone();
+  };
+  const remove = () => {
+    if (!window.confirm(`Delete “${event.title}” from the shared calendar?`)) return;
+    deleteEvent({ eventId: event.id });
+    onDone();
+  };
+  return <form className="quick-add-form timeline-editor" onSubmit={save}><div className="quick-add-heading"><div><p className="section-label">Edit event</p><h2>Update the shared calendar</h2></div><button type="button" onClick={onDone} aria-label="Close event editor"><X size={18}/></button></div><label>Event name<input value={title} onChange={input => setTitle(input.target.value)} required maxLength={200} autoFocus /></label><label>When<input type="datetime-local" value={startsAt} onChange={input => setStartsAt(input.target.value)} /></label><label>Venue <span>optional</span><input value={venue} onChange={input => setVenue(input.target.value)} maxLength={300} /></label><label className="checkbox-row"><input type="checkbox" checked={isCheckpoint} onChange={input => setIsCheckpoint(input.target.checked)} /> Mark as a key checkpoint</label><div className="timeline-editor-actions"><button className="primary-button" type="submit">Save changes</button><button className="text-button danger-button" type="button" onClick={remove}>Delete event</button></div></form>;
 }
 
 function rupeesToPaise(value: string): bigint | undefined {
@@ -316,7 +346,7 @@ function SourceUpload({ weddingId, source, onClose }: { weddingId: bigint; sourc
     if (!file || !parsed) return;
     setSaving(true);
     requestIngest({ weddingId, kind: source.kind });
-    parsed.events.forEach(event => createEvent({ weddingId, title: event.title, venue: event.venue, startsAt: event.startsAt ? Timestamp.fromDate(event.startsAt) : undefined, source: source.kind, confidence: event.confidence }));
+    parsed.events.forEach(event => createEvent({ weddingId, title: event.title, venue: event.venue, startsAt: event.startsAt ? Timestamp.fromDate(event.startsAt) : undefined, source: source.kind, confidence: event.confidence, isCheckpoint: false }));
     parsed.expenses.forEach(expense => recordImportedExpense({ weddingId, ...expense, source: source.kind }));
     onClose();
   };
@@ -363,13 +393,17 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
 }
 
 export default function WeddingTab({ weddingId, canViewBudget = true }: { weddingId: bigint; canViewBudget?: boolean }) {
+  const { identity } = useSpacetimeDB();
+  const [members] = useTable(tables.member);
   const [view, setView] = useState<View>('calendar');
   const [weddings] = useTable(tables.wedding);
   const [events] = useTable(tables.event);
   const wedding = weddings.find(row => row.id === weddingId);
   const weddingEvents = events.filter(row => row.weddingId === weddingId);
+  const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === identity?.toHexString());
+  const canManageTimeline = membership?.role === 'couple' || membership?.role === 'planner';
   const items: Record<Exclude<View, 'budget'>, React.ReactNode> = {
-    calendar: <CalendarItinerary wedding={wedding} events={weddingEvents} />,
+    calendar: <CalendarItinerary weddingId={weddingId} wedding={wedding} events={weddingEvents} canManage={canManageTimeline} />,
     events: <EventWorkspace weddingId={weddingId} />,
     guests: <ContactImport weddingId={weddingId} />,
     mood: <MoodBoard weddingId={weddingId} />,

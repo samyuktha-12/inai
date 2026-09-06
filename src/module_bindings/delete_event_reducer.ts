@@ -11,11 +11,5 @@ import {
 } from "spacetimedb";
 
 export default {
-  weddingId: __t.u64(),
-  title: __t.string(),
-  venue: __t.option(__t.string()),
-  startsAt: __t.option(__t.timestamp()),
-  source: __t.string(),
-  confidence: __t.f32(),
-  isCheckpoint: __t.bool(),
+  eventId: __t.u64(),
 };
