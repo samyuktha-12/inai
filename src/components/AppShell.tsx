@@ -201,6 +201,8 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantAgentId, setAssistantAgentId] = useState<string | undefined>();
+  const openAssistant = (agentId?: string) => { setAssistantAgentId(agentId); setAssistantOpen(true); };
   const membership = members.find(member => member.weddingId === weddingId && member.identity.toHexString() === identity?.toHexString());
 
   if (membership?.role === 'guest') return <GuestWeddingView weddingId={weddingId} onBack={onBack} />;
@@ -278,15 +280,15 @@ export default function AppShell({ onBack, weddingId }: { onBack: () => void; we
       <div className="dotted-seam" aria-hidden />
 
       <main className="inai-page">
-        {tab === 'today' && <TodayTab weddingId={weddingId} onNavigate={t => setTab(t === 'tasks' ? 'wedding' : t)} onOpenChat={() => setChatOpen(true)} />}
-        {tab === 'decide' && <div className="decision-chat-layout"><DecisionBoard weddingId={weddingId} /><GroupChat weddingId={weddingId} embedded /></div>}
-        {tab === 'wedding' && <WeddingTab weddingId={weddingId} canViewBudget={membership?.role !== 'guest'} />}
+        {tab === 'today' && <TodayTab weddingId={weddingId} onNavigate={t => setTab(t === 'tasks' ? 'wedding' : t)} onOpenChat={() => setChatOpen(true)} onOpenAssistant={() => openAssistant('built-in:coordinator')} />}
+        {tab === 'decide' && <div className="decision-chat-layout"><DecisionBoard weddingId={weddingId} onOpenAssistant={() => openAssistant('built-in:decision')} /><GroupChat weddingId={weddingId} embedded /></div>}
+        {tab === 'wedding' && <WeddingTab weddingId={weddingId} canViewBudget={membership?.role !== 'guest'} onOpenAssistant={openAssistant} />}
       </main>
 
       {peopleOpen && <PeoplePanel weddingId={weddingId} onClose={() => setPeopleOpen(false)} />}
       {chatOpen && <GroupChat weddingId={weddingId} onClose={() => setChatOpen(false)} />}
-      {assistantOpen && <AssistantDock weddingId={weddingId} screen={tab === 'today' ? 'Today' : tab === 'decide' ? 'Decide' : 'Wedding'} onClose={() => setAssistantOpen(false)} />}
-      <button type="button" className="assistant-launch" onClick={() => setAssistantOpen(value => !value)} aria-expanded={assistantOpen} aria-controls="wedding-assistants"><Sparkles size={17}/> Assistants</button>
+      {assistantOpen && <AssistantDock weddingId={weddingId} screen={tab === 'today' ? 'Today' : tab === 'decide' ? 'Decide' : 'Wedding'} initialAgentId={assistantAgentId} onClose={() => setAssistantOpen(false)} />}
+      <button type="button" className="assistant-launch" onClick={() => assistantOpen ? setAssistantOpen(false) : openAssistant()} aria-expanded={assistantOpen} aria-controls="wedding-assistants"><Sparkles size={17}/> Assistants</button>
     </div>
   );
 }

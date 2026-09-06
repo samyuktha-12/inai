@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Bot, Send, Sparkles, X } from 'lucide-react';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
@@ -14,7 +14,7 @@ const builtInNames: Record<string, string> = {
   menu_planner: 'Menu planner',
 };
 
-export default function AssistantDock({ weddingId, screen, onClose }: { weddingId: bigint; screen: Screen; onClose: () => void }) {
+export default function AssistantDock({ weddingId, screen, initialAgentId, onClose }: { weddingId: bigint; screen: Screen; initialAgentId?: string; onClose: () => void }) {
   const { identity, isActive } = useSpacetimeDB();
   const [agents] = useTable(tables.weddingAgent);
   const [customAgents] = useTable(tables.customWeddingAgent);
@@ -27,6 +27,9 @@ export default function AssistantDock({ weddingId, screen, onClose }: { weddingI
     ...agents.filter(agent => agent.weddingId === weddingId && agent.enabled).map(agent => ({ id: `built-in:${agent.kind}`, label: builtInNames[agent.kind] ?? agent.kind, brief: 'Built-in assistant' })),
     ...customAgents.filter(agent => agent.weddingId === weddingId && agent.enabled).map(agent => ({ id: `custom:${agent.id}`, label: agent.name, brief: 'Custom assistant' })),
   ], [agents, customAgents, weddingId]);
+  useEffect(() => {
+    if (initialAgentId && available.some(agent => agent.id === initialAgentId)) setSelected(initialAgentId);
+  }, [available, initialAgentId]);
   const chosen = available.find(agent => agent.id === selected) ?? available[0];
 
   const submit = async (event: FormEvent) => {

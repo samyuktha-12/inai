@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Timestamp } from 'spacetimedb';
 import { reducers, tables } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
-import { CheckCircle2, MessageCircle } from 'lucide-react';
+import { CheckCircle2, MessageCircle, Sparkles } from 'lucide-react';
 
 const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
@@ -22,7 +22,7 @@ function shortDate(value?: Timestamp) {
   return new Date(Number(value.microsSinceUnixEpoch / 1000n)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function TodayTab({ onNavigate, onOpenChat, weddingId }: { onNavigate: (tab: 'decide' | 'tasks') => void; onOpenChat: () => void; weddingId: bigint }) {
+export default function TodayTab({ onNavigate, onOpenChat, onOpenAssistant, weddingId }: { onNavigate: (tab: 'decide' | 'tasks') => void; onOpenChat: () => void; onOpenAssistant: () => void; weddingId: bigint }) {
   const { identity } = useSpacetimeDB();
   const [tasks] = useTable(tables.task);
   const [decisions] = useTable(tables.decision);
@@ -63,7 +63,7 @@ export default function TodayTab({ onNavigate, onOpenChat, weddingId }: { onNavi
   return <div className="today-dashboard">
     <section className="dashboard-hero">
       <div className="dashboard-welcome"><span className="dashboard-mark" aria-hidden /><p>{exactDate ? `Wedding day, ${exactDate.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}` : wedding?.dateLabel ?? 'Wedding date to confirm'}</p><h1>Good morning, {me?.name?.split(' ')[0] ?? 'there'}</h1></div>
-      <div className="countdown-cards"><div><b>{countdown === undefined ? '—' : Math.max(0, countdown)}</b><span>days</span></div><div><b>{weddingEvents.length}</b><span>events</span></div><div><b>{weddingTasks.length}</b><span>in the plan</span></div></div>
+      <div className="today-hero-actions"><button type="button" className="contextual-assistant-button" onClick={onOpenAssistant}><Sparkles size={16}/> Ask coordinator</button><div className="countdown-cards"><div><b>{countdown === undefined ? '—' : Math.max(0, countdown)}</b><span>days</span></div><div><b>{weddingEvents.length}</b><span>events</span></div><div><b>{weddingTasks.length}</b><span>in the plan</span></div></div></div>
     </section>
     <section className="dashboard-metrics" aria-label="Wedding metrics"><div><span>Open work</span><b>{weddingTasks.filter(task => !task.done).length}</b><small>{myOpenTasks.length ? `${myOpenTasks.length} assigned to you` : 'Nothing assigned to you'}</small></div><div><span>Budget planned</span><b>{fmt.format(spend)}</b><small>{budgetTarget ? `${fmt.format(Math.max(0, budgetTarget - spend))} remaining` : weddingExpenses.length ? `${weddingExpenses.length} confirmed lines` : 'Set a budget in Wedding'}</small></div><div><span>Open decisions</span><b>{openDecisions.length}</b><small>{needsMyLock.length ? `${needsMyLock.length} waiting on you` : needsMyVote.length ? `${needsMyVote.length} need your vote` : 'All caught up'}</small></div><div><span>Sources waiting</span><b>{sourceCount}</b><small>Exports and quotes to add</small></div></section>
     <section className="dashboard-workspace">

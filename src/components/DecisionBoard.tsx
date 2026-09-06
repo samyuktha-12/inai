@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Crown, LockKeyhole } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Crown, LockKeyhole, Sparkles } from 'lucide-react';
 import { tables, reducers } from '../module_bindings';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import '../decision-board.css';
@@ -19,7 +19,7 @@ function PollOptionGrid({ options, picked, onChoose, count }: { options: Array<{
   </section>;
 }
 
-export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
+export default function DecisionBoard({ weddingId, onOpenAssistant }: { weddingId: bigint; onOpenAssistant: () => void }) {
   const { identity } = useSpacetimeDB();
   const [decisions] = useTable(tables.decision);
   const [options] = useTable(tables.decisionOption);
@@ -71,7 +71,7 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
     </section>;
   })() : null;
 
-  if (!next) return <div className="decision-page"><div className="empty-state"><Check size={28}/><h1 className="headline">Every decision is settled</h1><p>New choices from your wedding team will appear here.</p></div>{settledPolls}</div>;
+  if (!next) return <div className="decision-page"><div className="decision-assistant-row"><button type="button" className="contextual-assistant-button" onClick={onOpenAssistant}><Sparkles size={16}/> Ask decision helper</button></div><div className="empty-state"><Check size={28}/><h1 className="headline">Every decision is settled</h1><p>New choices from your wedding team will appear here.</p></div>{settledPolls}</div>;
 
   const decisionOptions = options.filter(row => row.decisionId === next.id);
   const myVote = votes.find(row => row.decisionId === next.id && row.voterIdentity.toHexString() === myHex);
@@ -84,7 +84,7 @@ export default function DecisionBoard({ weddingId }: { weddingId: bigint }) {
   const submitVote = () => { if (picked !== undefined) castVote({ decisionId: next.id, optionId: picked }); };
 
   return <div className="decision-page">
-    <p className="eyebrow">Decisions</p>
+    <div className="decision-page-heading"><p className="eyebrow">Decisions</p><button type="button" className="contextual-assistant-button" onClick={onOpenAssistant}><Sparkles size={16}/> Ask decision helper</button></div>
     {open.length > 1 && <div className="open-poll-list" aria-label="Open polls"><p>{open.length} open polls</p>{open.map((decision, index) => <button type="button" className={decision.id === next.id ? 'active' : ''} key={String(decision.id)} onClick={() => { setActiveDecisionId(decision.id); setChoice(undefined); }}><span>{index + 1}</span><b>{decision.title}</b><small>{votes.filter(vote => vote.decisionId === decision.id).length} vote{votes.filter(vote => vote.decisionId === decision.id).length === 1 ? '' : 's'}</small></button>)}</div>}
     <div className="decision-active"><p className="section-label">{open.length > 1 ? 'Selected poll' : 'Open poll'}</p><h1 className="decision-question">{next.title}</h1><p className="decision-meta">Your vote helps the named decider choose. It doesn’t replace their final call.</p></div>
     <PollOptionGrid options={decisionOptions} picked={picked} onChoose={setChoice} count={count} />

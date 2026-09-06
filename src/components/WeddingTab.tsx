@@ -652,9 +652,10 @@ function ConnectWedding({ weddingId }: { weddingId: bigint }) {
   </section>;
 }
 
-export default function WeddingTab({ weddingId, canViewBudget = true }: { weddingId: bigint; canViewBudget?: boolean }) {
+export default function WeddingTab({ weddingId, canViewBudget = true, onOpenAssistant }: { weddingId: bigint; canViewBudget?: boolean; onOpenAssistant: (agentId: string) => void }) {
   const { identity } = useSpacetimeDB();
   const [members] = useTable(tables.member);
+  const [customAgents] = useTable(tables.customWeddingAgent);
   const [view, setView] = useState<View>('calendar');
   const [weddings] = useTable(tables.wedding);
   const [events] = useTable(tables.event);
@@ -672,6 +673,10 @@ export default function WeddingTab({ weddingId, canViewBudget = true }: { weddin
   };
   const visibleSections = canViewBudget ? weddingSections : weddingSections.filter(section => section.key !== 'budget');
   const selected = visibleSections.find(section => section.key === view) ?? visibleSections[0];
-  const SectionIcon = selected.icon;
-  return <div className="wedding-workspace"><header className="wedding-workspace-header"><p className="eyebrow">{wedding ? `${wedding.brideName} & ${wedding.groomName} · ${wedding.city}` : 'Your shared plan'}</p><div className="wedding-workspace-title"><h1 className="headline">Plan the wedding, together</h1><p>Start with what matters today. Every update stays visible to the people planning with you.</p></div></header><nav className="wedding-section-nav" aria-label="Wedding planning sections">{visibleSections.map(section => { const Icon = section.icon; return <button className={view === section.key ? 'active' : ''} key={section.key} onClick={() => setView(section.key)} aria-current={view === section.key ? 'page' : undefined}><Icon size={18}/><span><b>{section.label}</b><small>{section.hint}</small></span></button>; })}</nav><div className="wedding-section-context"><SectionIcon size={17}/><div><b>{selected.label}</b><span>{selected.hint}</span></div></div>{view === 'budget' && canViewBudget ? <BudgetWorkspace weddingId={weddingId} /> : items[selected.key as Exclude<View, 'budget'>]}</div>;
+  const ritualGuide = customAgents.find(agent => agent.weddingId === weddingId && agent.enabled && agent.name.trim().toLowerCase() === 'ritual guide');
+  const assistantForView: Record<View, { id: string; label: string }> = {
+    calendar: { id: 'built-in:coordinator', label: 'Ask coordinator' }, events: ritualGuide ? { id: `custom:${ritualGuide.id}`, label: 'Ask ritual guide' } : { id: 'built-in:coordinator', label: 'Ask coordinator' }, menus: { id: 'built-in:menu_planner', label: 'Ask menu planner' }, budget: { id: 'built-in:vendor_liaison', label: 'Ask vendor helper' }, guests: { id: 'built-in:guest_logistics', label: 'Ask guest logistics' }, mood: { id: 'built-in:coordinator', label: 'Ask coordinator' }, connect: { id: 'built-in:coordinator', label: 'Ask coordinator' },
+  };
+  const contextualAssistant = assistantForView[view];
+  return <div className="wedding-workspace"><header className="wedding-workspace-header"><p className="eyebrow">{wedding ? `${wedding.brideName} & ${wedding.groomName} · ${wedding.city}` : 'Your shared plan'}</p><div className="wedding-workspace-title"><h1 className="headline">Plan the wedding, together</h1><p>Start with what matters today. Every update stays visible to the people planning with you.</p></div></header><nav className="wedding-section-nav" aria-label="Wedding planning sections">{visibleSections.map(section => { const Icon = section.icon; return <button className={view === section.key ? 'active' : ''} key={section.key} onClick={() => setView(section.key)} aria-current={view === section.key ? 'page' : undefined} aria-label={`${section.label}: ${section.hint}`}><Icon size={18}/><span><b>{section.label}</b><small>{section.hint}</small></span></button>; })}</nav><div className="wedding-contextual-assistant"><button type="button" className="contextual-assistant-button" onClick={() => onOpenAssistant(contextualAssistant.id)}><Sparkles size={16}/>{contextualAssistant.label}</button></div>{view === 'budget' && canViewBudget ? <BudgetWorkspace weddingId={weddingId} /> : items[selected.key as Exclude<View, 'budget'>]}</div>;
 }
