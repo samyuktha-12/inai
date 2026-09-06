@@ -951,18 +951,15 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
   if (![...ctx.db.wedding_agent_setting.by_wedding_kind.filter([weddingId, 'menu_planner'])].length) {
     ctx.db.wedding_agent_setting.insert({ id: 0n, weddingId, kind: 'menu_planner', instructions: 'Draft a mostly vegetarian Tamil menu for each event, include one Jain-friendly option, and keep every suggestion ready for family review.', state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
   }
-  // Menu fixture data exercises the same review and finalisation states people
-  // see in the app: a draft with family favourites alongside a final human
-  // decision. It is intentionally idempotent so loading the demo never
-  // duplicates candidates or votes.
+  // The chat only mentions a Tamil breakfast and filter coffee. These are
+  // candidates for review, not a menu approval or an instruction to cater.
   const seedMenu = (
     eventTitle: string,
     title: string,
     serviceStyle: string,
     guestCount: number,
     dietaryNotes: string,
-    state: 'reported' | 'confirmed',
-    items: Array<{ course: string; dish: string; tags?: string; state: 'reported' | 'confirmed'; likes?: Array<'priya' | 'rahul'> }>,
+    items: Array<{ course: string; dish: string; tags?: string }>,
   ) => {
     const event = [...ctx.db.event.iter()].find(item => item.weddingId === weddingId && item.title === eventTitle);
     if (!event) return;
@@ -976,98 +973,70 @@ export const seedPriyaRahulDemo = spacetimedb.reducer({}, ctx => {
         serviceStyle,
         guestCount,
         dietaryNotes,
-        state,
-        source: 'manual',
+        state: 'reported',
+        source: 'whatsapp_export',
         updatedBy: ctx.sender,
-        confidence: 1,
+        confidence: 0.78,
         updatedAt: ctx.timestamp,
-        finalizedBy: state === 'confirmed' ? ctx.sender : undefined,
-        finalizedAt: state === 'confirmed' ? ctx.timestamp : undefined,
+        finalizedBy: undefined,
+        finalizedAt: undefined,
       });
     }
     for (const item of items) {
       let candidate = [...ctx.db.menu_item.by_menu.filter(record.id)].find(existing => existing.dish === item.dish);
       if (!candidate) {
-        candidate = ctx.db.menu_item.insert({ id: 0n, menuId: record.id, course: item.course, dish: item.dish, dietaryTags: item.tags, state: item.state, source: 'manual', updatedBy: ctx.sender, confidence: item.state === 'confirmed' ? 1 : 0.86, updatedAt: ctx.timestamp });
-      }
-      for (const person of item.likes ?? []) {
-        const identity = person === 'priya' ? priyaIdentity : rahulIdentity;
-        if ([...ctx.db.menu_item_vote.by_item_voter.filter([candidate.id, identity])].length) continue;
-        ctx.db.menu_item_vote.insert({ id: 0n, menuItemId: candidate.id, voterIdentity: identity, liked: true, votedAt: ctx.timestamp });
+        candidate = ctx.db.menu_item.insert({ id: 0n, menuId: record.id, course: item.course, dish: item.dish, dietaryTags: item.tags, state: 'reported', source: 'whatsapp_export', updatedBy: ctx.sender, confidence: 0.78, updatedAt: ctx.timestamp });
       }
     }
   };
-  seedMenu('Mehendi evening', 'Garden mehendi supper', 'Food stations', 160, 'Vegetarian-forward. Keep one Jain-friendly main and a nut-free dessert.', 'reported', [
-    { course: 'Welcome drink', dish: 'Tender coconut and lime cooler', tags: 'Vegan · gluten-free', state: 'confirmed', likes: ['priya', 'rahul'] },
-    { course: 'Starter', dish: 'Mini paniyaram with tomato chutney', tags: 'Vegetarian', state: 'reported', likes: ['priya'] },
-    { course: 'Main', dish: 'Jain vegetable pulao', tags: 'Jain-friendly · vegan', state: 'reported', likes: ['rahul'] },
-    { course: 'Live counter', dish: 'Kothu parotta counter', tags: 'Vegetarian option', state: 'reported', likes: ['priya', 'rahul'] },
-    { course: 'Dessert', dish: 'Tender coconut payasam', tags: 'Nut-free', state: 'confirmed', likes: ['priya'] },
-  ]);
-  seedMenu('Wedding ceremony', 'Ceremony lunch', 'Buffet', 240, 'Mostly vegetarian Tamil lunch with a Jain-friendly main and filter coffee served after dessert.', 'confirmed', [
-    { course: 'Welcome drink', dish: 'Panakam and buttermilk', tags: 'Vegetarian', state: 'confirmed' },
-    { course: 'Main', dish: 'Banana-leaf South Indian lunch', tags: 'Vegetarian', state: 'confirmed' },
-    { course: 'Main', dish: 'Jain vegetable korma', tags: 'Jain-friendly', state: 'confirmed' },
-    { course: 'Dessert', dish: 'Elaneer payasam', tags: 'Nut-free', state: 'confirmed' },
-    { course: 'Late-night bite', dish: 'Filter coffee and mini mysore pak', tags: 'Vegetarian', state: 'confirmed' },
+  seedMenu('Morning muhurtham', 'Morning muhurtham breakfast', 'To decide after venue visit', 220, 'Lakshmi requested a Tamil breakfast after muhurtham and filter coffee.', [
+    { course: 'Breakfast direction', dish: 'Tamil breakfast after muhurtham', tags: 'Requested in family chat' },
+    { course: 'Beverage', dish: 'Filter coffee', tags: 'Requested in family chat' },
   ]);
   for (const [eventTitle, label] of [
-    ['Mehendi evening', 'Confirm artist arrival time and number of artists'],
-    ['Mehendi evening', 'Arrange shaded seating, drinks, and a photo corner'],
-    ['Sangeet night', 'Share the family performance order and rehearsal time'],
-    ['Sangeet night', 'Confirm stage, sound check, and dinner service timing'],
-    ['Wedding ceremony', 'Confirm muhurtham timing with the priest and family'],
-    ['Wedding ceremony', 'Review mandap seating, ritual items, and guest arrivals'],
+    ['Morning muhurtham', 'Confirm muhurtham timing with the priest and family'],
+    ['Morning muhurtham', 'Decide the Tamil breakfast after the venue visit'],
+    ['Banyan Court venue visit (proposed)', 'Confirm whether Banyan Court can host the proposed Sunday 10:30 am visit'],
+    ['Banyan Court venue visit (proposed)', 'Compare Banyan Court and The Madras House inclusions for 220 guests'],
   ] as const) {
     const event = [...ctx.db.event.iter()].find(item => item.weddingId === weddingId && item.title === eventTitle);
     if (!event || [...ctx.db.event_checklist_item.by_event.filter(event.id)].some(item => item.label === label)) continue;
-    ctx.db.event_checklist_item.insert({ id: 0n, weddingId, eventId: event.id, label, done: false, state: 'reported', source: 'template', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    ctx.db.event_checklist_item.insert({ id: 0n, weddingId, eventId: event.id, label, done: false, state: 'reported', source: 'whatsapp_export', updatedBy: ctx.sender, confidence: 0.78, updatedAt: ctx.timestamp });
   }
-  for (const [category, label, amountPaise, paid] of [
-    ['Venue', 'Leela Palace ceremony spaces', 8500000n, true],
-    ['Catering', 'South Indian lunch for 240 guests', 6240000n, false],
-    ['Decor', 'Jasmine and marigold florals', 2850000n, false],
-    ['Photography', 'Two-day photo and film team', 1900000n, true],
+  for (const [category, label, amountPaise, vendorName] of [
+    ['Venue', 'Banyan Court venue and food estimate for 220', 58000000n, undefined],
+    ['Venue', 'The Madras House venue estimate for 220', 63500000n, undefined],
+    ['Decor', 'Nila Blooms Decor estimate NB-PR-0613', 38940000n, 'Nila Blooms Decor'],
+    ['Decor', 'Amaravati Events estimate AE-1427', 29264000n, 'Amaravati Events'],
+    ['Photography', 'Frames by Ananya estimate FBA-PR-102', 27966000n, 'Frames by Ananya'],
   ] as const) {
     if ([...ctx.db.expense.iter()].some(item => item.weddingId === weddingId && item.label === label)) continue;
-    ctx.db.expense.insert({ id: 0n, weddingId, category, label, amountPaise, paid, vendorId: undefined, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
+    const vendorId = vendorName ? [...ctx.db.vendor.iter()].find(item => item.weddingId === weddingId && item.name === vendorName)?.id : undefined;
+    ctx.db.expense.insert({ id: 0n, weddingId, category, label, amountPaise, paid: false, vendorId, state: 'reported', source: vendorName ? 'vendor_quote' : 'whatsapp_export', updatedBy: ctx.sender, confidence: vendorName ? 0.99 : 0.88, updatedAt: ctx.timestamp });
   }
   for (const [title, ownerIdentity] of [
-    ['Share the final guest list with catering', priyaIdentity],
-    ['Confirm the sangeet song list', rahulIdentity],
-    ['Review the florist’s jasmine samples', priyaIdentity],
+    ['Arrange or confirm the proposed Banyan Court venue visit', rahulIdentity],
+    ['Ask whether Frames by Ananya can offer smaller mehendi coverage', priyaIdentity],
   ] as const) {
     if ([...ctx.db.task.iter()].some(item => item.weddingId === weddingId && item.title === title)) continue;
-    ctx.db.task.insert({ id: 0n, weddingId, title, ownerIdentity, done: false, createdAt: ctx.timestamp, dueAt: ctx.timestamp, state: 'confirmed', source: 'manual', reportedBy: undefined, confidence: undefined, reportedAt: undefined });
-  }
-  const guestListTask = [...ctx.db.task.iter()].find(item => item.weddingId === weddingId && item.title === 'Share the final guest list with catering');
-  if (guestListTask && ![...ctx.db.coordinator_request.iter()].some(item => item.weddingId === weddingId && item.instruction === 'Ask Priya whether the guest-list additions are ready for the caterer.')) {
-    ctx.db.coordinator_request.insert({ id: 0n, weddingId, kind: 'followup', targetIdentity: priyaIdentity, instruction: 'Ask Priya whether the guest-list additions are ready for the caterer.', scheduledFor: undefined, status: 'open', state: 'confirmed', source: 'manual', requestedBy: rahulIdentity, requestedAt: ctx.timestamp, updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp, taskId: guestListTask.id });
+    ctx.db.task.insert({ id: 0n, weddingId, title, ownerIdentity, done: false, createdAt: ctx.timestamp, dueAt: undefined, state: 'reported', source: 'whatsapp_export', reportedBy: ctx.sender, confidence: 0.74, reportedAt: ctx.timestamp });
   }
   for (const [body, sentBy] of [
-    ['The floral samples are in. I have put the three options on Decide for everyone to see.', priyaIdentity],
-    ['I will send the first guest list to catering after we review the family additions tonight.', rahulIdentity],
-    ['The Leela has held the ballroom for the sangeet. We still need to confirm the menu.', priyaIdentity],
+    ['Target is Chennai, Jan 24 next year. Please keep the weekend free, but this is not booked yet.', rahulIdentity],
+    ['Guest count rough rough: 220 total? My side maybe 85, Priya side around 105, rest friends.', rahulIdentity],
+    ['Banyan Court and The Madras House both have Jan 24 open right now. Nothing is held.', rahulIdentity],
+    ['I like Nila’s floral work from the photos, but no decision yet.', priyaIdentity],
+    ['Budget first. We should keep decor under ₹3L if possible.', priyaIdentity],
+    ['The photographer is available, but no hold has been placed. I will draft the question for you to send.', priyaIdentity],
+    ['Please make sure no vendor is booked from this chat without Priya or Rahul saying yes first.', rahulIdentity],
   ] as const) {
     if ([...ctx.db.wedding_message.iter()].some(message => message.weddingId === weddingId && message.body === body)) continue;
-    ctx.db.wedding_message.insert({ id: 0n, weddingId, body, sentBy, sentAt: ctx.timestamp, state: 'confirmed', source: 'manual', updatedBy: ctx.sender, confidence: 1, updatedAt: ctx.timestamp });
-  }
-  for (const [body, sentBy] of [
-    ['Mummy prefers a simple jasmine entrance. Can we keep the marigolds for the mehendi?', priyaIdentity],
-    ['I have added the cousins from Bengaluru to the guest sheet. A few RSVPs are still pending.', rahulIdentity],
-    ['The sangeet rehearsal can start at 5:30 pm if the sound team is ready by then.', rahulIdentity],
-    ['The caterer shared two lunch menus. Please keep one Jain-friendly option in the shortlist.', priyaIdentity],
-    ['I saved a few softer ivory-and-jasmine ideas from the Pinterest board for everyone to review.', priyaIdentity],
-  ] as const) {
-    if ([...ctx.db.wedding_message.iter()].some(message => message.weddingId === weddingId && message.body === body)) continue;
-    ctx.db.wedding_message.insert({ id: 0n, weddingId, body, sentBy, sentAt: ctx.timestamp, state: 'reported', source: 'whatsapp', updatedBy: ctx.sender, confidence: 0.86, updatedAt: ctx.timestamp });
-  }
-  if (![...ctx.db.decision.iter()].some(decision => decision.weddingId === weddingId && decision.title === 'Which welcome drink should guests receive?')) {
-    seedDecision(ctx, weddingId, 'Which welcome drink should guests receive?', ['Tender coconut cooler', 'Rose milk', 'Filter coffee bar']);
+    ctx.db.wedding_message.insert({ id: 0n, weddingId, body, sentBy, sentAt: ctx.timestamp, state: 'reported', source: 'whatsapp_export', updatedBy: ctx.sender, confidence: 0.9, updatedAt: ctx.timestamp });
   }
   for (const [title, options] of [
-    ['Which sangeet opening should the family use?', ['Bride’s cousins dance', 'Couple entry', 'Parents’ welcome']],
-    ['Which ceremony flower direction should we review?', ['Mostly jasmine', 'Jasmine with marigold', 'Soft ivory and greenery']],
+    ['Which venue should we visit first?', ['Banyan Court · ₹5.8L estimate', 'The Madras House · ₹6.35L estimate']],
+    ['Which decor quote should we review against the ₹3L planning number?', ['Amaravati Events · ₹2,92,640', 'Nila Blooms Decor · ₹3,89,400']],
+    ['Should we request a smaller mehendi coverage option from Frames by Ananya?', ['Yes, draft the question', 'Keep the existing estimate for now']],
   ] as const) {
     if ([...ctx.db.decision.iter()].some(decision => decision.weddingId === weddingId && decision.title === title)) continue;
     seedDecision(ctx, weddingId, title, [...options]);
