@@ -963,6 +963,36 @@ export const updateGuestCoordination = spacetimedb.reducer(
   }
 );
 
+// A person adding a guest directly is the source of this record, so it is
+// confirmed at creation. Imported and agent-extracted guests remain reported
+// until someone reviews them.
+export const createGuest = spacetimedb.reducer(
+  { weddingId: t.u64(), name: t.string(), side: t.option(t.string()), homeCity: t.option(t.string()) },
+  (ctx, { weddingId, name, side, homeCity }) => {
+    if (!canManageWedding(ctx, weddingId)) throw new SenderError('only the couple or event creator can add a guest');
+    const guestName = name.trim();
+    if (!guestName || guestName.length > 160) throw new SenderError('guest name must be between 1 and 160 characters');
+    if (side && !['bride', 'groom'].includes(side)) throw new SenderError('guest side must be bride or groom');
+    const guestHomeCity = homeCity?.trim() || undefined;
+    if (guestHomeCity && guestHomeCity.length > 120) throw new SenderError('home city must be 120 characters or fewer');
+    ctx.db.guest.insert({
+      id: 0n,
+      weddingId,
+      name: guestName,
+      side,
+      homeCity: guestHomeCity,
+      rsvpStatus: 'awaiting_response',
+      state: 'confirmed',
+      source: 'manual',
+      updatedBy: ctx.sender,
+      confidence: 1,
+      updatedAt: ctx.timestamp,
+      note: undefined,
+      needsFollowUp: false,
+    });
+  }
+);
+
 export const createEvent = spacetimedb.reducer(
   { weddingId: t.u64(), title: t.string(), venue: t.option(t.string()), startsAt: t.option(t.timestamp()), source: t.string(), confidence: t.f32(), isCheckpoint: t.bool() },
   (ctx, { weddingId, title, venue, startsAt, source, confidence, isCheckpoint }) => {

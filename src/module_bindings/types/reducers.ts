@@ -18,6 +18,7 @@ import CreateCustomWeddingAgentReducer from "../create_custom_wedding_agent_redu
 import CreateDecisionReducer from "../create_decision_reducer";
 import CreateEventReducer from "../create_event_reducer";
 import CreateExpenseReducer from "../create_expense_reducer";
+import CreateGuestReducer from "../create_guest_reducer";
 import CreateTaskReducer from "../create_task_reducer";
 import CreateVendorReducer from "../create_vendor_reducer";
 import CreateWeddingReducer from "../create_wedding_reducer";
@@ -61,6 +62,7 @@ export type CreateCustomWeddingAgentParams = __Infer<typeof CreateCustomWeddingA
 export type CreateDecisionParams = __Infer<typeof CreateDecisionReducer>;
 export type CreateEventParams = __Infer<typeof CreateEventReducer>;
 export type CreateExpenseParams = __Infer<typeof CreateExpenseReducer>;
+export type CreateGuestParams = __Infer<typeof CreateGuestReducer>;
 export type CreateTaskParams = __Infer<typeof CreateTaskReducer>;
 export type CreateVendorParams = __Infer<typeof CreateVendorReducer>;
 export type CreateWeddingParams = __Infer<typeof CreateWeddingReducer>;

@@ -46,6 +46,7 @@ import CreateCustomWeddingAgentReducer from "./create_custom_wedding_agent_reduc
 import CreateDecisionReducer from "./create_decision_reducer";
 import CreateEventReducer from "./create_event_reducer";
 import CreateExpenseReducer from "./create_expense_reducer";
+import CreateGuestReducer from "./create_guest_reducer";
 import CreateTaskReducer from "./create_task_reducer";
 import CreateVendorReducer from "./create_vendor_reducer";
 import CreateWeddingReducer from "./create_wedding_reducer";
@@ -415,6 +416,7 @@ const reducersSchema = __reducers(
   __reducerSchema("create_decision", CreateDecisionReducer),
   __reducerSchema("create_event", CreateEventReducer),
   __reducerSchema("create_expense", CreateExpenseReducer),
+  __reducerSchema("create_guest", CreateGuestReducer),
   __reducerSchema("create_task", CreateTaskReducer),
   __reducerSchema("create_vendor", CreateVendorReducer),
   __reducerSchema("create_wedding", CreateWeddingReducer),

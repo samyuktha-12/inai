@@ -31,6 +31,7 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
   const [members] = useTable(tables.member);
   const createWeddingInvitation = useReducer(reducers.createWeddingInvitation);
   const setMembershipRole = useReducer(reducers.setMembershipRole);
+  const setMembershipSide = useReducer(reducers.setMembershipSide);
   const [inviteRole, setInviteRole] = useState('');
   const [inviteSide, setInviteSide] = useState('');
   const [inviteLink, setInviteLink] = useState('');
@@ -57,43 +58,23 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
     return (
       <div
         key={p.identity.toHexString()}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          background: '#FFFFFF',
-          border: `1px solid ${colors.hairline}`,
-          borderRadius: 12,
-          padding: '10px 12px',
-        }}
+        className="people-member"
       >
         <span
           aria-label={isOnline ? 'Online' : 'Offline'}
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: isOnline ? colors.green : colors.hairline,
-            flex: 'none',
-          }}
+          className={`people-presence ${isOnline ? 'is-online' : 'is-offline'}`}
         />
-        <span style={{ flex: 1, fontSize: 14 }}>
+        <span className="people-member-name">
           {p.name}
           {isMe ? ' (you)' : ''}
         </span>
         {iAmAdmin && membership && !isMe ? (
-          <span style={{ display: 'grid', justifyItems: 'end', gap: 3 }}>
+          <span className="people-member-controls">
           <select
             value={membership.role}
             onChange={e => setMembershipRole({ weddingId, identity: p.identity, role: e.target.value })}
             aria-label={`Change ${p.name}'s role`}
-            style={{
-              border: `1px solid ${colors.hairline}`,
-              borderRadius: 8,
-              fontSize: 12,
-              fontFamily: fonts.ui,
-              padding: '4px 6px',
-            }}
+            className="people-member-select"
           >
             {Object.entries(ROLE_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
@@ -101,10 +82,23 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
               </option>
             ))}
           </select>
-          <small style={{ fontSize: 11, color: colors.muted }}>{membership.state === 'confirmed' ? 'Joined' : 'Awaiting confirmation'}</small>
+          <select
+            value={membership.side ?? ''}
+            onChange={e => setMembershipSide({ weddingId, identity: p.identity, side: e.target.value || undefined })}
+            aria-label={`Change ${p.name}'s side`}
+            className="people-member-select"
+          >
+            <option value="">No side</option>
+            {Object.entries(SIDE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <small>{membership.state === 'confirmed' ? 'Joined' : 'Awaiting confirmation'}</small>
           </span>
         ) : (
-          <span style={{ fontSize: 12, color: colors.muted }}>{membership && `${ROLE_LABELS[membership.role] ?? membership.role} · ${membership.state === 'confirmed' ? 'Joined' : 'Awaiting confirmation'}`}</span>
+          <span className="people-member-meta">{membership && `${ROLE_LABELS[membership.role] ?? membership.role} · ${membership.state === 'confirmed' ? 'Joined' : 'Awaiting confirmation'}`}</span>
         )}
       </div>
     );
@@ -134,42 +128,28 @@ function PeoplePanel({ onClose, weddingId }: { onClose: () => void; weddingId: b
           </button>
         </div>
 
-        <p style={{ fontSize: 13, color: colors.muted, margin: '0 0 8px' }}>
+        <div className="people-membership">
           You are <b style={{ color: colors.ink2 }}>{me?.name ?? '…'}</b>
           {myMembership?.role && ` · ${ROLE_LABELS[myMembership.role] ?? myMembership.role}`}
-          {myMembership?.side && ` · ${SIDE_LABELS[myMembership.side] ?? myMembership.side}`}
-        </p>
+          {iAmAdmin && myMembership ? <select
+            value={myMembership.side ?? ''}
+            onChange={e => setMembershipSide({ weddingId, identity: myMembership.identity, side: e.target.value || undefined })}
+            aria-label="Change your side"
+            className="people-side-select"
+          >
+            <option value="">No side</option>
+            {Object.entries(SIDE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select> : myMembership?.side ? ` · ${SIDE_LABELS[myMembership.side] ?? myMembership.side}` : null}
+        </div>
 
-        <p
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: colors.muted,
-            letterSpacing: '.05em',
-            textTransform: 'uppercase',
-            margin: '0 0 10px',
-          }}
-        >
-          Online now
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-          {online.length > 0 ? online.map(p => renderMember(p, true)) : <span style={{ color: colors.muted, fontSize: 13 }}>No one is online right now.</span>}
+        <p className="people-section-title">Online now</p>
+        <div className="people-member-list">
+          {online.length > 0 ? online.map(p => renderMember(p, true)) : <span className="people-empty">No one is online right now.</span>}
         </div>
 
         {offline.length > 0 && <>
-          <p
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: colors.muted,
-              letterSpacing: '.05em',
-              textTransform: 'uppercase',
-              margin: '0 0 10px',
-            }}
-          >
-            Everyone else
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+          <p className="people-section-title">Everyone else</p>
+          <div className="people-member-list">
             {offline.map(p => renderMember(p, false))}
           </div>
         </>}
